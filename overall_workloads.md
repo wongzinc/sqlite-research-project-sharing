@@ -186,12 +186,22 @@ layout 上還剩多少效益」。
   結論：churned DB 上 N≤46 在 -10% 附近 plateau，**N=92 帶來 -54% 改善並在
   10 個 checkpoint 上全部壓制其他 N**，跟乾淨 DB 上的形狀完全一致。Churn 不
   改變「layers_N 在 C 上需要 N=92」的根本問題。
-- **RAM 緊縮場景的 workload**：目前的 A/B/C 都是 ~16 MB hot set in unlimited RAM。
+- ~~**RAM 緊縮場景的 workload**：目前的 A/B/C 都是 ~16 MB hot set in unlimited RAM。
   缺一個 cgroup 限制下、hot set > RAM 的 workload，才能看出 2f SLRU vs
-  access-count（2d/2e）的差別。
+  access-count（2d/2e）的差別。~~
+  → **已補滿**：systemd-run --user --scope -p MemoryMax=20M 跑 **A/B/C × 1a/1b/1c
+  × {base, 2d, 2e_K10/50/100/500, 2f_SLRU} × {20M, none} × 6 reps = 756 cells**
+  完整矩陣。**關鍵發現**：63 個 cells 的 first-q ratio (20M / unlimited)
+  **全部落在 [0.90, 1.19]**——「RAM 緊會打殘 prefetch」假設被推翻；真正受影響
+  的是 avg_us / majflt（後續 query 的 cache 命中率），不是 first-q。
+  **另一個關鍵發現**：1b vacuum 是唯一讓 2f_SLRU 在 20M 下仍保持 majflt=0 /
+  avg=1.50 的 layout（1a/1c 下 2f preload 被 evict、跌回 base level）。
+  詳見 [overall_results.md 第十六維](overall_results.md#第十六維--ram-pressure-完整矩陣cgroup-memorymax20-mb-abc--1a1b1c--base-2d-2e_k1050100500-2f_slru)。
 
-> 策略層級的缺口（2d/2e access-pattern、2f × layout 1c）見
-> [overall_results.md](overall_results.md) 的「還沒跑的策略 × workload 組合」表。
+> ~~策略層級的缺口（2d/2e access-pattern、2f × layout 1c）見~~
+> ~~[overall_results.md](overall_results.md) 的「還沒跑的策略 × workload 組合」表。~~
+> → **2d/2e 已完成**（A/B/C × 3 layouts × 6 reps）；2f × 1c 也已完成。
+> 詳見 [overall_results.md 第十四/十五/十六維](overall_results.md)。
 
 ## 已完成的覆蓋（A/B/C 三維 × 全策略矩陣）
 
@@ -200,10 +210,16 @@ layout 上還剩多少效益」。
 
 | | A (Zipfian) | B (Uniform) | C (high-key) |
 |---|---|---|---|
-| **Layout 1a (orig)** | ✅ 全策略 | ✅ 全策略 | ✅ 全策略 |
-| **Layout 1b (VACUUM)** | ✅ baseline + range/perpage/layers_5 + **N sweep + 2f SLRU** | ✅ 全策略 | ✅ 全策略 |
-| **Layout 1c (type-aware)** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU | ✅ baseline + range/perpage + **N sweep** + 2f SLRU | ✅ baseline + range/perpage + **N sweep** + 2f SLRU |
+| **Layout 1a (orig)** | ✅ 全策略 + **RAM 20M** | ✅ 全策略 + **RAM 20M** | ✅ 全策略 + **RAM 20M** |
+| **Layout 1b (VACUUM)** | ✅ baseline + range/perpage/layers_5 + **N sweep + 2f SLRU + 2d/2e + RAM 20M** | ✅ 全策略 + **2d/2e + RAM 20M** | ✅ 全策略 + **2d/2e + RAM 20M** |
+| **Layout 1c (type-aware)** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** |
 | **Churn 漂移** | — | — | ✅ 10 checkpoints × **N sweep {0,1,5,10,20,46,92}** |
+| **RAM-pressure 全矩陣** | ✅ 7 strategies × 1a/1b/1c × {20M, none} × 6 reps | ✅ 同左 | ✅ 同左 |
 
 B 早就不再只是「對照組」 — 它是 prefetch 失敗模式（leaf fault 主導）和 ta
 layout 反效果（+8%）的主要證據來源。
+
+RAM-pressure 矩陣現已涵蓋 **9 個 (workload × layout) cell × 7 個策略 × 2 個 mem 上限**，
+全部以 6 reps median 聚合（756 cells，第十六維）。原本只測 A × 1a × 4 策略
+的 48-cell 縮影矩陣完全被取代，且新舊矩陣在 A × 1a × 4 策略上誤差 ≤ 3 µs
+（交叉驗證）。

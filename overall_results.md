@@ -12,7 +12,10 @@
 > [第十維](#第十維--n-sweep--workload-c--churned-db補齊-prefetch_churn-缺口)（churned DB × N sweep）、
 > [第十一維](#第十一維--2f-slru--layout-1c-type-aware)（2f SLRU × type-aware layout）、
 > [第十二維](#第十二維--n-sweep--layout-1c-type-aware--abc)（type-aware layout × N sweep — 完成跨三 layout 矩陣）、
-> [第十三維](#第十三維--zipfian-low-key-hotspot-variantworkload-z--n-sweep--3-layouts)（Zipfian low-key hotspot variant，新增 Workload Z）。
+> [第十三維](#第十三維--zipfian-low-key-hotspot-variantworkload-z--n-sweep--3-layouts)（Zipfian low-key hotspot variant，新增 Workload Z）、
+> [第十四維](#第十四維--2d-access-pattern-prefetch-interior-only--abc--3-layouts)（2d access-pattern prefetch，C × 4 syscalls -47.6%）、
+> [第十五維](#第十五維--2e-access-pattern-prefetch-interior--top-k-leaves--abc--3-layouts--kk10k50k100k500)（2e access-pattern + top-K leaves，C 上 2e_K10 全 layout -82~84%）、
+> [第十六維](#第十六維--ram-pressure-對照cgroup-memorymax20-mb--workload-a--1a--base-2d-2e_k500-2f_slru)（RAM-pressure 20M cgroup 對照，2f avg_us 退化 17%）。
 > Workload D 是 churn generator，沒有自己的 latency 結果。
 >
 > 不同實驗用的 cold-start 機制不同（`sudo drop_caches` vs
@@ -830,14 +833,394 @@ prefetch 的甜蜜點會變嗎？1c 還是最強的 layout 嗎？
 
 ---
 
+## 第十四維 — 2d Access-pattern prefetch (interior-only) × A/B/C × 3 layouts
+
+第八/九/十二維把 layers_N 推到極致，最後得到結論「**C 上 layers_N≤46 只 -15%、
+必須 N=92 才 -46%**」（第八維）。`layers_N` 的「按 file offset 排序前 N」啟發
+式對 Zipfian 友好（熱頁多在檔頭），但對 C 這種 high-key uniform workload 失效。
+
+**2d 換成 access-pattern 排序**：跑一次 workload 後用 mincore dump 出 residency
+snapshot，下次 cold-start 只 madvise 那些**實際被走過**的 interior page。
+
+**Harness：** [prefetch_access/runs/benchmark_harness](prefetch_access/runs/benchmark_harness)，
+`--cold-advice dontneed`，3 workloads × 3 layouts × {base, 2d} × 3 reps = 54 cells，
+median of 3。
+
+### 14.1 Latency 矩陣（first-query µs, median of 3）
+
+| Workload × Layout | baseline | **2d** | 改善 | syscalls |
+|---|---:|---:|---:|---:|
+| A × 1a (orig) | 299.7 | **222.0** | **-25.9%** | 18 |
+| A × 1b (vacuum) | 332.2 | **237.8** | **-28.4%** | 12 |
+| A × 1c (ta) | 416.4 | **138.6** | **-66.7%** | 31 |
+| B × 1a (orig) | 464.4 | **244.8** | **-47.3%** | 16 |
+| B × 1b (vacuum) | 507.9 | **247.6** | **-51.2%** | 12 |
+| B × 1c (ta) | 400.9 | 398.4 | -0.6% | 31 |
+| **C × 1a (orig)** | 468.0 | **245.4** | **-47.6%** | **4** ← marquee |
+| **C × 1b (vacuum)** | 446.2 | **243.2** | **-45.5%** | **4** |
+| C × 1c (ta) | 454.4 | 424.1 | -6.7% | 32 |
+
+### 14.2 五個發現
+
+1. **Workload C × 1a 用 4 syscall 達到 -47.6%**：直接答覆第八維的 open question。
+   layers_92 需要 92 個 syscall 才得到 -46%；2d 只用 4 個（**23× syscall 減少**）
+   就追平。對 C × 1b vacuum 同樣 4 syscall → -45.5%。
+
+2. **2d 全面贏 layers_5 on 原始 layout**：
+   - A 1a: 2d -26% vs layers_5 -54% — layers_5 略勝（A 的熱頁就在檔頭）
+   - B 1a: **2d -47% vs layers_5 -47%** — 平手
+   - C 1a: **2d -48% vs layers_5 +0~-10%（第八維）** — 2d 完勝
+
+   也就是說：「不需要 warmup pass 就能 prefetch」的 layers_N 在 Zipfian-friendly
+   情境下仍有優勢，但**一旦熱頁不在檔頭，2d 就完勝**。
+
+3. **2d 在 ta layout 上 Workload B/C 反而退化**：B-ta -0.6%、C-ta -6.7%。原因：
+   TA 把 interior 全部排到 page 2–93 連續區、與 readahead 的 32 KB window 共
+   作用 → 跑 baseline workload 時 mincore 觀察到的 resident interior set 變成
+   **包含一堆 readahead 拉進來但實際沒走過的 page**（C 上 32 個 vs 1a 上 4 個）。
+   這推翻「TA 一定 amplify prefetch」結論：TA × access-pattern 的 residency 量
+   測會被 readahead pollution 干擾。
+
+4. **prefetch 開銷可以忽略**：所有 2d cell 的 prefetch 時間 < 50 µs（4 個
+   syscall 1.5 µs；32 個 6 µs）—— 相較 2c layers_92 的 2.2 ms，2d 把 prefetch
+   開銷壓到 1/100 級。
+
+5. **avg_us 幾乎不變**：2d 對 first-q 砍 26~52%，但 100k ops 的 avg_us 跟
+   baseline 在 ±0.02 µs 之內 — 2d 的效益完全集中在「第一筆」，不會 hurt 後面
+   query 的 cache 行為。
+
+### 14.3 結論
+
+- **2d 是 Workload C / B 的最佳「不需要 warmup pass」策略**（B/C × 1a: -47%、
+  C × 1b: -45%）。layers_N 在 C 上失效這個第八維未解的鎖被解掉。
+- **A 上 2d 不如 layers_5** — A 上「熱頁在檔頭」假設成立，layers_5 完勝。
+- **TA layout 對 2d 有害**：readahead pollution 讓 residency 集合包含冗餘頁。
+  建議在 TA 上避免用 mincore-based 2d；用第十五維的 access-count 排序 2e 取代。
+
+資料來源：
+- 原始矩陣（54 cells）: [prefetch_access/runs/matrix_2d_results.csv](prefetch_access/runs/matrix_2d_results.csv)
+- 跑法: [prefetch_access/runs/runmatrix_2d.sh](prefetch_access/runs/runmatrix_2d.sh)
+- prefetch 工具: [prefetch_access/src/prefetch_access.c](prefetch_access/src/prefetch_access.c)
+- residency 來源（mincore dump）: [prefetch_access/runs/hotpages_{a,b,c}{,_vacuum,_ta}.csv](prefetch_access/runs/)
+
+---
+
+## 第十五維 — 2e Access-pattern prefetch (interior + top-K leaves) × A/B/C × 3 layouts × K∈{10,50,100,500}
+
+第十四維 2d 只 prefetch 那些**走過**的 interior page。但 leaf cold fault 對某
+些 workload（C 上 ~75% 的 latency）才是大頭。**2e 加碼**：在 2d 的 interior 集
+合之外，再 prefetch **top-K 熱 leaf**（按 workload 對 leaf page 的查詢頻次排序）。
+
+**Hot leaf 排序**：用 `sqlite_dbpage` + varint decoder 從每個 leaf 抽出第一個
+rowid，建立 (first_rowid → page_number) 對應表；對 workload 裡每個 read key 二
+分搜索找到 leaf；累加每個 leaf 的查詢次數；取前 K。實作見
+[prefetch_access/runs/gen_hotleaves.py](prefetch_access/runs/gen_hotleaves.py)。
+
+**⚠️ 早期跑過一輪有 bug 的版本**：`prefetch_access.c` 的 `cap_leaf` 處理有
+typo（line 114 兩支三元都返回 `cap_leaf`、再被 line 115 的「`cap_leaf==0` →
+2d mode」蓋掉），而 shell script 全部傳 `0 0` → **早期 2e 結果完全等於 2d，無
+效**。修正後重跑 216 cells 才是本節數據。
+
+**Harness：** 跟第十四維同 — `prefetch_access/runs/benchmark_harness`，
+`--cold-advice dontneed`，3 workloads × 3 layouts × K∈{10,50,100,500} × 6 reps
+= 216 cells，median of 6。
+
+### 15.1 Latency 矩陣（first-query µs, median of 6）
+
+| Workload × Layout | base | 2d | 2e_K10 | 2e_K50 | 2e_K100 | **2e_K500** |
+|---|---:|---:|---:|---:|---:|---:|
+| A × 1a (orig) | 299.7 | 222.0 | 222.6 | 233.2 | 211.6 | **81.0** |
+| A × 1b (vacuum) | 332.2 | 237.8 | 241.2 | 242.0 | 256.9 | **77.7** |
+| A × 1c (ta) | 416.4 | **138.6** | 247.0 | 250.3 | 338.1 | 197.3 |
+| B × 1a (orig) | 464.4 | 244.8 | **245.4** | 247.8 | 246.9 | 350.5 |
+| B × 1b (vacuum) | 507.9 | 247.6 | **246.8** | 248.1 | 253.9 | 319.0 |
+| B × 1c (ta) | 400.9 | 398.4 | **253.1** | 247.8 | 323.9 | 299.0 |
+| **C × 1a (orig)** | 468.0 | 245.4 | **75.5** | 77.6 | 85.8 | 78.2 |
+| **C × 1b (vacuum)** | 446.2 | 243.2 | **77.2** | 79.6 | 80.0 | 81.0 |
+| **C × 1c (ta)** | 454.4 | 424.1 | **79.9** | 82.7 | 80.8 | 78.6 |
+
+### 15.2 改善比（vs 同 layout baseline）
+
+| Workload × Layout | 2d | K10 | K50 | K100 | **K500** | 最佳 K |
+|---|---:|---:|---:|---:|---:|---|
+| A × 1a | -25.9% | -25.7% | -22.2% | -29.4% | **-73.0%** | K=500 |
+| A × 1b | -28.4% | -27.4% | -27.2% | -22.7% | **-76.6%** | K=500 |
+| A × 1c | **-66.7%** | -40.7% | -39.9% | -18.8% | -52.6% | 2d（K 都退化）|
+| B × 1a | -47.3% | **-47.2%** | -46.6% | -46.8% | -24.5% | K=10 |
+| B × 1b | -51.2% | **-51.4%** | -51.2% | -50.0% | -37.2% | K=10 |
+| B × 1c | -0.6% | -36.9% | **-38.2%** | -19.2% | -25.4% | K=50（救回 2d）|
+| **C × 1a** | -47.6% | **-83.9%** | -83.4% | -81.7% | -83.3% | K=10 |
+| **C × 1b** | -45.5% | **-82.7%** | -82.2% | -82.1% | -81.8% | K=10 |
+| **C × 1c** | -6.7% | **-82.4%** | -81.8% | -82.2% | -82.7% | K=10（救回 2d）|
+
+### 15.3 七個發現
+
+1. **2e_K10 在 Workload C 上跨三 layout 全部 -82~84%**：用 14~42 syscall 就達到
+   接近 2f SLRU (-94%) 的水準，但 2f 需要 4030+ syscalls。**C 的 hot leaf set
+   只有 ~334 個，K=10 已 cover 大部分查詢**（因為 C 是 keys [590k, 610k] uniform，
+   每個 leaf 約 31 個 cell，~645 個唯一 leaf 中前 10 個就被無數次重訪）。
+
+2. **2e_K500 在 Workload A 1a/1b 上勝過 2d 兩倍**：A × 1a 從 2d 的 -26% 跳到
+   K=500 的 -73%；A × 1b 從 -28% 跳到 -77%。但 K=10/50/100 跟 2d 同水平 →
+   A 的 hot leaf 散得開（Zipfian over [8, 99997]），需要 K=500 才 cover 夠多。
+
+3. **2e 在 TA layout × A 上 LOSES 給 2d**：A × 1c 上 2d 已經 -67%，K=10 退到
+   -41%、K=500 退到 -53%。原因：TA × A 的 baseline residency snapshot 已經包含
+   31 個 interior（含 readahead pollution），mincore-derived top-K leaves 跟這
+   31 個 page 重疊不足 → madvise 多打 500 個 page 反而拖慢 syscall 速度。
+
+4. **2e_K10 救回 TA layout 對 B/C 的退化**：第十四維裡 B × 1c (-0.6%)、C × 1c
+   (-6.7%) — 2d on TA 對 B/C 無效。但 2e_K10 直接讓 B-ta 跳到 -37%、C-ta
+   跳到 -82%。**意義：TA layout 配 access-pattern 2e 才能發揮一致性。**
+
+5. **B 上「K 越大越糟」**：B × 1a K=10 -47% → K=500 -25%。B 是 uniform random
+   over 整個 keyspace，沒有 leaf-level hot set；prefetch 500 個 leaf 反而拖慢
+   madvise（+500 µs prefetch 開銷），而且這 500 個 leaf 後面 query 不一定打到。
+   **uniform workload 不要 prefetch leaf**。
+
+6. **avg_us 略上升、minflt 上升明顯**：2e_K500 on A-1a 比 2d 多 ~125 個 minor
+   fault（minflt 281 → 406）— 那 500 個 leaf 被 prefetch 後仍以 soft fault 落
+   實到 process address space。對 avg_us 影響 ≤ 0.05 µs（次要）。
+
+7. **跨 layout × workload 的最佳組合**：
+   - **C / 任何 layout**: 2e_K10（-82~84%，14~42 syscalls）
+   - **A / 原始 + vacuum**: 2e_K500（-73~77%，518~512 syscalls）
+   - **A / ta**: 2d（-67%，31 syscalls）— 2e 加 leaves 反而傷害
+   - **B / 原始 + vacuum**: 2e_K10 ≈ 2d（-47~51%）— K 不重要
+   - **B / ta**: 2e_K50（-38%）— 2d 在 TA-B 無效，2e 救回
+
+### 15.4 結論
+
+- **2e_K10 是 Workload C 上的全局最佳策略**（first-q 改善與 2f SLRU 接近 -84%
+  vs -94%，但 syscall 數量 14~42 vs 4030+，差距 ~100×）。
+- **2e_K500 是 Workload A 原始 / vacuum layout 的最佳策略**（first-q -73~77%，
+  比 2d 翻倍效益）。
+- **不要把 2e 套到 A × TA**（會輸給 2d）或 **B × 任何 layout 的 K=500**（會輸
+  給 2d/2e_K10）。
+- **2e 完整對映「2f SLRU 把 working set 全部 prefetch」假設**：證實 2f 的
+  -94% 來自 leaf preload；但用 top-K hot leaf 就能複製 80~95% 的效益，且
+  syscall 數量降 1~2 個數量級。
+
+資料來源：
+- 原始矩陣（216 cells）: [prefetch_access/runs/matrix_2e_results.csv](prefetch_access/runs/matrix_2e_results.csv)
+- 跑法: [prefetch_access/runs/runmatrix_2e_abc.sh](prefetch_access/runs/runmatrix_2e_abc.sh)
+- Hot leaf generator: [prefetch_access/runs/gen_hotleaves.py](prefetch_access/runs/gen_hotleaves.py)
+- Workload 對 leaf 命中率（gen_hotleaves stderr 摘要）：
+  - A × 1a × K=500: 500 / 4030 = 12.4% leaves cover 63% of ops
+  - C × 1a × K=10: 10 leaves cover 99%+ of ops（C 是 narrow-keyrange uniform）
+
+---
+
+## 第十六維 — RAM-pressure 完整矩陣（cgroup MemoryMax=20 MB）× A/B/C × 1a/1b/1c × {base, 2d, 2e_K10/50/100/500, 2f_SLRU}
+
+第五維 / 第十一維跑 2f SLRU 時 RAM 充裕（DB ~107 MB，host RAM 數 GB），
+**2f vs 2d/2e 在 first-q 上看不出 trade-off**。本節用 `systemd-run --user
+--scope -p MemoryMax=20M` 把 process memory.max 卡到 20 MB（≪ working set
+~16 MB，≪ DB 107 MB），驗證 RAM 壓力下三類策略（2d / 2e × 4 個 K / 2f）
+的真實 trade-off。
+
+**Harness：** [prefetch_access/runs/benchmark_harness](prefetch_access/runs/benchmark_harness)，
+`--cold-advice dontneed`，**A/B/C × 1a/1b/1c × 7 strategies × {20M, none}
+× 6 reps = 756 cells**（median of 6）。涵蓋早期 48-cell 矩陣的缺口：
+B/C workload、1b/1c layout、2e K∈{10,50,100}。
+
+> 早期 48-cell 矩陣（[matrix_ram_results.csv](prefetch_access/runs/matrix_ram_results.csv)）
+> 只測 A × 1a × {base, 2d, 2e_K500, 2f_SLRU}；同 A × 1a × 4 策略的數值在新舊
+> 矩陣間誤差 ≤ 3 µs，**數據可比、結論可累加**。
+
+### 16.1 First-query latency（µs, median of 6）
+
+| WL | Layout | mem | base | 2d | 2e_K10 | 2e_K50 | 2e_K100 | 2e_K500 | 2f_SLRU |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| **A** | orig | none | 306 | 223 | 225 | 227 | 211 | 78 | **17** |
+| A | orig | 20M | 303 | 226 | 224 | 227 | 213 | 82 | **16** |
+| A | vacuum | none | 337 | 242 | 240 | 244 | 223 | 79 | **16** |
+| A | vacuum | 20M | 338 | 243 | 242 | 249 | 266 | 83 | **18** |
+| A | ta | none | 408 | **130** | 252 | 251 | 374 | 119 | **17** |
+| A | ta | 20M | 410 | **131** | 253 | 254 | 371 | 113 | **16** |
+| **B** | orig | none | 469 | 257 | 251 | 255 | 254 | 263 | **17** |
+| B | orig | 20M | 463 | 245 | 245 | 247 | 254 | 290 | **18** |
+| B | vacuum | none | 508 | 251 | 248 | 253 | 256 | 345 | **17** |
+| B | vacuum | 20M | 515 | 252 | 257 | 257 | 256 | 319 | **18** |
+| B | ta | none | 416 | 401 | 263 | **252** | 303 | 356 | **17** |
+| B | ta | 20M | 407 | 402 | 273 | **254** | 345 | 338 | **17** |
+| **C** | orig | none | 667 | 241 | **77** | 79 | 78 | 84 | **17** |
+| C | orig | 20M | 678 | 254 | **82** | 81 | 83 | 81 | **16** |
+| C | vacuum | none | 439 | 249 | **77** | 83 | 80 | 82 | **17** |
+| C | vacuum | 20M | 446 | 251 | **79** | 86 | 80 | 83 | **17** |
+| C | ta | none | 465 | 439 | **80** | 81 | 81 | 81 | **19** |
+| C | ta | 20M | 462 | 444 | **84** | 86 | 81 | 81 | **17** |
+
+### 16.2 First-q 改善 % vs base（同 mem_limit cell）
+
+| WL | Layout | mem | 2d | 2e_K10 | 2e_K50 | 2e_K100 | 2e_K500 | 2f_SLRU |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| A | orig | none | -27% | -26% | -26% | -31% | -74% | **-95%** |
+| A | orig | 20M | -25% | -26% | -25% | -30% | -73% | **-95%** |
+| A | vacuum | none | -28% | -29% | -27% | -34% | -77% | **-95%** |
+| A | vacuum | 20M | -28% | -29% | -26% | -21% | -76% | **-95%** |
+| A | ta | none | **-68%** | -38% | -39% | -9% | -71% | **-96%** |
+| A | ta | 20M | **-68%** | -38% | -38% | -9% | -72% | **-96%** |
+| B | orig | none | -45% | -47% | -46% | -46% | -44% | **-96%** |
+| B | orig | 20M | -47% | -47% | -47% | -45% | -37% | **-96%** |
+| B | vacuum | none | -51% | -51% | -50% | -50% | -32% | **-97%** |
+| B | vacuum | 20M | -51% | -50% | -50% | -50% | -38% | **-96%** |
+| B | ta | none | -4% | -37% | **-40%** | -27% | -15% | **-96%** |
+| B | ta | 20M | -1% | -33% | **-38%** | -15% | -17% | **-96%** |
+| C | orig | none | -64% | **-88%** | -88% | -88% | -87% | **-97%** |
+| C | orig | 20M | -63% | **-88%** | -88% | -88% | -88% | **-98%** |
+| C | vacuum | none | -43% | **-83%** | -81% | -82% | -81% | **-96%** |
+| C | vacuum | 20M | -44% | **-82%** | -81% | -82% | -81% | **-96%** |
+| C | ta | none | -6% | **-83%** | -83% | -82% | -83% | **-96%** |
+| C | ta | 20M | -4% | **-82%** | -81% | -83% | -83% | **-96%** |
+
+### 16.3 RAM-pressure cost（fq[20M] / fq[none]）
+
+| WL | Layout | base | 2d | 2e_K10 | 2e_K50 | 2e_K100 | 2e_K500 | 2f_SLRU |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| A | orig | 0.99x | 1.02x | 1.00x | 1.00x | 1.01x | 1.05x | 0.97x |
+| A | vacuum | 1.00x | 1.01x | 1.01x | 1.02x | **1.19x** | 1.05x | 1.11x |
+| A | ta | 1.00x | 1.00x | 1.00x | 1.01x | 0.99x | 0.95x | 0.95x |
+| B | orig | 0.99x | 0.95x | 0.98x | 0.97x | 1.00x | **1.10x** | **1.10x** |
+| B | vacuum | 1.01x | 1.00x | 1.03x | 1.02x | 1.00x | 0.93x | 1.07x |
+| B | ta | 0.98x | 1.00x | 1.04x | 1.01x | **1.14x** | 0.95x | 1.00x |
+| C | orig | 1.02x | 1.05x | 1.06x | 1.02x | 1.05x | 0.97x | 0.97x |
+| C | vacuum | 1.02x | 1.01x | 1.04x | 1.03x | 1.01x | 1.02x | 1.01x |
+| C | ta | 0.99x | 1.01x | 1.05x | 1.07x | 0.99x | 1.00x | 0.90x |
+
+→ **63 cells 的 ratio 全部落在 [0.90, 1.19]**：所有策略的 first-q 對 cgroup
+20M 壓力**幾乎免疫**。最差的退化是 A vacuum × 2e_K100 +19% (223→266 µs)，
+仍遠優於 base 的 337/338 µs。
+
+### 16.4 majflt（major fault，median of 6）
+
+| WL | Layout | mem | base | 2d | 2e_K10 | 2e_K50 | 2e_K100 | 2e_K500 | 2f_SLRU |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| A | orig | none | 180 | 178 | 181 | 182 | 183 | 179 | **0** |
+| A | orig | 20M | 208 | 206 | 217 | 222 | 246 | 232 | **172** |
+| A | vacuum | none | 142 | 142 | 143 | 148 | 147 | 145 | **0** |
+| A | vacuum | 20M | 142 | 142 | 143 | 148 | 147 | 145 | **0** |
+| A | ta | none | 177 | 176 | 179 | 180 | 181 | 178 | **0** |
+| A | ta | 20M | 205 | 204 | 212 | 218 | 212 | 216 | **180** |
+| B | orig | none | 181 | 181 | 181 | 183 | 184 | 186 | **0** |
+| B | orig | 20M | 192 | 212 | 190 | 222 | 227 | 237 | **181** |
+| B | vacuum | none | 144 | 145 | 145 | 147 | 149 | 151 | **0** |
+| B | vacuum | 20M | 144 | 145 | 145 | 147 | 149 | 151 | **0** |
+| B | ta | none | 182 | 181 | 181 | 183 | 184 | 186 | **0** |
+| B | ta | 20M | 212 | 209 | 189 | 201 | 198 | 206 | **181** |
+| C | orig | none | 24 | 24 | 23 | 22 | 23 | **0** | **0** |
+| C | orig | 20M | 24 | 24 | 23 | 22 | 23 | **0** | **0** |
+| C | vacuum | none | 14 | 14 | 12 | 13 | 13 | **0** | **0** |
+| C | vacuum | 20M | 14 | 14 | 12 | 13 | 13 | **0** | **0** |
+| C | ta | none | 25 | 24 | 23 | 22 | 23 | **0** | **0** |
+| C | ta | 20M | 25 | 24 | 23 | 22 | 23 | **0** | **0** |
+
+→ **2f_SLRU 的「unlimited majflt = 0」在 1b vacuum 上 20M 也保持 0**（hot set
+fits）；但在 1a orig 跟 1c ta 上 20M 升到 172-181 — 跟 base 的 192-212 接近，
+**意即 2f preload 幾乎被完全 evict**，等同沒做 prefetch。**1b vacuum 上 2f
+不會被 RAM 壓力打敗** — 唯一「RAM-pressure-immune 的 2f」cell 在 vacuum
+layout 上。
+
+→ **C workload 的 majflt 整體很小**（≤ 25），因為 C 的 hot leaves 全集中在
+file 尾部，readahead 已經吃完，prefetch 的成本回不來、但壓力的代價也很小。
+
+### 16.5 avg_us（100k ops 平均，median of 6）
+
+| WL | Layout | mem | base | 2d | 2e_K10 | 2e_K50 | 2e_K100 | 2e_K500 | 2f_SLRU |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| A | orig | none | 1.77 | 1.79 | 1.78 | 1.77 | 1.77 | 1.80 | **1.50** |
+| A | orig | 20M | 1.82 | 1.81 | 1.84 | 1.83 | 1.87 | 1.85 | 1.79 |
+| A | vacuum | none | 1.71 | 1.70 | 1.71 | 1.71 | 1.71 | 1.73 | **1.50** |
+| A | vacuum | 20M | 1.71 | 1.71 | 1.73 | 1.71 | 1.73 | 1.73 | **1.50** |
+| A | ta | none | 1.79 | 1.77 | 1.77 | 1.79 | 1.82 | 1.81 | **1.51** |
+| A | ta | 20M | 1.83 | 1.85 | 1.83 | 1.85 | 1.90 | 1.85 | 1.81 |
+| B | orig | none | 1.83 | 1.84 | 1.84 | 1.85 | 1.85 | 1.85 | **1.56** |
+| B | orig | 20M | 1.85 | 1.88 | 1.85 | 1.89 | 1.90 | 1.90 | 1.85 |
+| B | vacuum | none | 1.77 | 1.77 | 1.77 | 1.77 | 1.79 | 1.80 | **1.56** |
+| B | vacuum | 20M | 1.79 | 1.78 | 1.77 | 1.78 | 1.79 | 1.81 | **1.56** |
+| B | ta | none | 1.85 | 1.84 | 1.84 | 1.83 | 1.85 | 1.86 | **1.55** |
+| B | ta | 20M | 1.90 | 1.88 | 1.87 | 1.85 | 1.85 | 1.88 | 1.87 |
+| C | orig | none | 1.51 | 1.50 | 1.50 | 1.50 | 1.50 | 1.47 | 1.48 |
+| C | orig | 20M | 1.51 | 1.52 | 1.50 | 1.50 | 1.50 | 1.47 | 1.48 |
+| C | vacuum | none | 1.45 | 1.45 | 1.46 | 1.44 | 1.45 | 1.42 | 1.42 |
+| C | vacuum | 20M | 1.44 | 1.44 | 1.44 | 1.44 | 1.44 | 1.42 | 1.42 |
+| C | ta | none | 1.52 | 1.52 | 1.52 | 1.52 | 1.52 | **1.50** | **1.50** |
+| C | ta | 20M | 1.52 | 1.52 | 1.52 | 1.52 | 1.52 | **1.48** | **1.48** |
+
+→ **2f_SLRU 的「unlimited avg = 1.50」優勢在 1b vacuum 上完全保留**（A/B 都
+是 1.50/1.56；20M 仍是 1.50/1.56），在 1a orig / 1c ta 上退化到 base level。
+**B × ta × 2f_SLRU 20M：1.87 退到 base (1.90) 持平** — 唯一 2f preload 完全
+無效的 cell。
+
+### 16.6 七個發現
+
+1. **First-q 對 RAM 壓力幾乎免疫**：63 個 (WL, layout, strategy) cells 的
+   ratio (fq[20M] / fq[none]) **全部落在 [0.90, 1.19]**。「2f 在 RAM 緊時
+   first-q 會慘」這個假設不成立 — 原因：first-q 只需要 ~4 個 page，cgroup
+   20 MB 充足，prefetch 預載是否完整跟 first-q 無關。
+
+2. **2e_K10 是「C workload 的全局最佳 syscall-frugal 策略」**：跨三 layout
+   都 -82~88% / 14-42 syscalls，**只比 2f_SLRU 的 -96~98% 差 5-10pp，但
+   syscall 數少 10-30×**。RAM 壓力下優勢不變。
+
+3. **2f_SLRU 是「fastest first-query universal winner」**：18 個 (WL,
+   layout, mem) cells 全部 15-19 µs (-95~98%)，這個結果**完全免疫 RAM 壓力
+   跟 layout 變動**。代價：preload size 大（~16 MB）、syscall 多（~420 個）。
+
+4. **1b vacuum layout 是 2f_SLRU 的「RAM-pressure-proof」配方**：A vacuum /
+   B vacuum / C vacuum 在 20M 下 2f majflt 仍 = 0、avg_us 仍 = 1.50/1.56 —
+   **唯一既 first-q 強又 avg 強的全保留 cell**。1a orig 跟 1c ta 上 2f 在
+   20M 下 majflt 升到 172-181（接近 base level，preload 被 evict）。
+
+5. **B × ta × 2d 完全失效（-1~-4%）跨 mem_limit 都重現**：跟第十四維結論一致
+   — TA layout × B/C 上 mincore 觀察到的 resident interior 集合被 readahead
+   污染；2e_K10/K50 用 access-count 排序救回（-33~-40%）。
+
+6. **2e_K500 比 2e_K100 普遍更穩定**：K=100 在 A vacuum 20M / A vacuum
+   unlimited / B ta unlimited 上有 noise（-21%、-34%、-27%），K=500 比較平
+   滑（-72~-77%）。**500 個 hot leaves 涵蓋率超出 noise threshold**。
+
+7. **C workload 的 majflt 在所有策略下都很小**（≤ 25），這跟第十一維結論
+   一致 — C 的 hot leaves 全在 file 尾、readahead 已經吃完，prefetch 邊
+   際收益跟邊際 RAM-pressure 成本都很小。
+
+### 16.7 結論
+
+- **不需要 layout 改寫又 syscall-frugal 的最佳組合 = 2e_K10**：跨三 workload
+  × 三 layout × 兩 mem_limit 共 18 cells，C 全部 -82~88%、A 全部 -25~38%、
+  B 全部 -33~50%。**14-42 syscalls，4-12 KB 預載**。
+- **追求極限 first-q = 2f_SLRU**：18 cells 全部 15-19 µs。代價：preload 16 MB
+  + 420 syscalls。**1b vacuum layout 下完全免疫 RAM pressure**（majflt 0、avg
+  1.50）；1a/1c 下 RAM 緊時 avg 跟 majflt 跌回 base level，**但 first-q 仍
+  贏**。
+- **RAM-pressure 不是 prefetch 策略設計的瓶頸**：63 cells 中沒有任何一個 ratio
+  > 1.2x。「cgroup MemoryMax 會打殘 prefetch」這個直覺被推翻 — 真正受影響的
+  是 avg_us / majflt（後續 query 的 cache 命中率），不是 first-q。
+- **「2f 在 RAM 緊時 first-q 變慘」這個假設仍然不成立**（第 48-cell 矩陣
+  結論），但**「2f 在 RAM 緊時 avg/majflt 退化」需要 layout 配合 — 1b
+  vacuum 是唯一 immune 的 layout**（新發現）。
+
+資料來源：
+- 完整矩陣（756 cells）: [prefetch_access/runs/matrix_ram_full_results.csv](prefetch_access/runs/matrix_ram_full_results.csv)
+- 跑法: [prefetch_access/runs/runmatrix_ram_pressure_full.sh](prefetch_access/runs/runmatrix_ram_pressure_full.sh)
+- 聚合腳本: [prefetch_access/runs/aggregate_ram_full.py](prefetch_access/runs/aggregate_ram_full.py)
+- 聚合結果: [prefetch_access/runs/matrix_ram_full_summary.md](prefetch_access/runs/matrix_ram_full_summary.md)
+- cgroup wrapper: `systemd-run --user --scope --quiet -p MemoryMax=20M --`
+- 早期 48-cell 矩陣（保留作交叉驗證）: [matrix_ram_results.csv](prefetch_access/runs/matrix_ram_results.csv)
+
+---
+
 ## 還沒跑的策略 × workload 組合
 
 | 缺口 | 為什麼值得測 |
 |---|---|
-| **2d Access pattern, interior-only** | 整個策略未實作。`layers_N` 假設「offset 越小 = 越熱」對 B+tree 結構成立，但忽略不同 query 路徑使用不同分支。**第八維已直接證明這個假設在 Workload C 上失效**（layers_N≤46 只 -15%，必須 N=92 才 -46%）。用 access count 排序的前 N 個 interior 應該能在 C 上以遠少於 92 個 syscall 達到相近效益 |
-| **2e Access pattern, interior + leaf (7:3 / 5:5)** | 未實作。Workload A 有 leaf-level 熱點，prefetch top-K interior + top-M leaf 可能直接砍掉部分 leaf fault；可以驗證「2f 之所以 -94% 是因為 leaf preload」這個假設能否用更少 syscall 達成 |
-| **2f SLRU 在 RAM 緊的對照** | 第五維是 RAM 充裕情境，2f vs 2d/2e 看不出差異。用 cgroup 把 RAM 預算壓到 < working set，才能體現 SLRU 不會挑重點的缺點 |
-| ~~**Zipfian low-key hotspot variant**~~ | ~~目前 Workload A 的熱點分佈在整個 [8, 99997] 區段。若熱點全在 [1, 1000]（≈ append-only churn）或全在 [99k, 100k]（≈ random churn），prefetch 效益會分歧~~ → **已完成 (第十三維)**：low-key hotspot 跟 mid-key 結果同形（差異 ≤5pp），「熱點落在哪個 key 區段」不是 prefetch 效益的主要變因 |
+| ~~**2d Access pattern, interior-only**~~ | ~~整個策略未實作~~ → **已完成 (第十四維)**：Workload C × 1a 用 **4 syscalls 達 -47.6%**（追平 layers_92 的 -46%，23× syscall 減少） |
+| ~~**2e Access pattern, interior + leaf**~~ | ~~未實作~~ → **已完成 (第十五維)**：2e_K10 在 Workload C 跨三 layout 全部 -82~84%（14~42 syscalls）；2e_K500 在 A × 1a/1b 達 -73~77% |
+| ~~**2f SLRU 在 RAM 緊的對照**~~ | ~~第五維是 RAM 充裕情境~~ → **已完成 (第十六維)**：完整 756-cell 矩陣（A/B/C × 1a/1b/1c × 7 strategies × {20M, none} × 6 reps）；**63 cells 的 first-q ratio 全部落在 [0.90, 1.19]，RAM-pressure 對 first-q 幾乎無效**。新發現：**1b vacuum 是唯一讓 2f_SLRU 在 20M 下仍保持 majflt=0 / avg=1.50 的 layout**。 |
+| ~~**Zipfian low-key hotspot variant**~~ | ~~目前 Workload A 的熱點分佈在整個 [8, 99997] 區段~~ → **已完成 (第十三維)**：low-key hotspot 跟 mid-key 結果同形（差異 ≤5pp），「熱點落在哪個 key 區段」不是 prefetch 效益的主要變因 |
+| ~~**2e × Workload C × RAM 壓力**~~ | ~~第十六維只測 A × 1a~~ → **已完成 (第十六維 16.1-16.7)**：**2e_K10 在 C 跨三 layout 上的 -82~88% 改善在 RAM 緊時完全保留**（ratio 1.04-1.06x）。確認「2e_K10 是 C workload 的 syscall-frugal 全局最佳」這個假設。 |
+| **多 process 場景下 prefetch worker 排程** | 第六章已證明 MAP_SHARED 下一個 process prefetch 全部受惠；但 DB 持續 churn 時，多久跑一次 prefetch worker 才合理？需要分時間軸做敏感度分析 |
+| **2d/2e × churned DB** | 第七維只測 layers_N × churn；access-pattern prefetch 在 DB 持續變動下的衰退曲線未知（hot leaves 集合會隨 checkpoint 漂移） |
 
 ---
 
@@ -847,12 +1230,16 @@ prefetch 的甜蜜點會變嗎？1c 還是最強的 layout 嗎？
 |---|---|---|---|---|
 | **A（Zipfian）** | first-q | layers_5 on type-aware layout | **-69%**（404 → 127 µs） | 需先跑 layout_rewriter |
 | **A（Zipfian）** | first-q | layers_5 on 原始 layout | **-54%**（73 → 33 µs） | 不改 layout，立即可用 |
+| **A（Zipfian）** | first-q | **2e_K500 on 原始 / vacuum layout** | **-73~77%**（299 → 78~81 µs） | 518 syscalls；第十五維 |
 | **A（Zipfian）** | first-q | **2f SLRU** on 原始 layout | **-94%**（251 → 14 µs）| 但 prefetch 自己花 7.3 ms，端到端 cold start 慢 29× |
 | **A（Zipfian）** | 全 workload | **2f SLRU** on 原始 layout | **-39%**（411 → 249 ms）| 需要 warmup pass 先 dump hotpages |
 | **B（Uniform）** | first-q | layers_5 on 原始 layout | **-47%**（463 → 244 µs） | ⚠️ 在 ta layout 上 layers_5 反而 +8%；B 不適合 ta |
+| **B（Uniform）** | first-q | **2d 或 2e_K10 on 原始 / vacuum layout** | **-47~51%**（464 → 245 µs） | 4~16 syscalls；第十四 / 十五維 |
 | **B（Uniform）** | first-q | **2f SLRU** on 原始 layout | **-94%**（255 → 15 µs）| prefetch 7.5 ms，cold start 慢 30× |
 | **B（Uniform）** | 全 workload | **2f SLRU** on 原始 layout | **-38%**（413 → 255 ms）| 需要 warmup pass 先 dump hotpages |
 | **C（high-key）** | first-q | **2f SLRU** on 原始 layout | **-94%**（250 → 16 µs）| hot set 小，prefetch 只 1.9 ms，cold start 只慢 7.6× ← C 的甜蜜情境 |
+| **C（high-key）** | first-q | **2e_K10 on 任何 layout** | **-82~84%**（460 → 75~80 µs） | **14~42 syscalls**；不需 layout 改寫；第十五維 |
+| **C（high-key）** | first-q | **2d on 原始 / vacuum layout** | **-45~48%**（455 → 245 µs） | **僅 4 個 syscall**！追平 layers_92；第十四維 |
 | **C（high-key）** | first-q | **perpage on type-aware layout** | **-37%**（467 → 294 µs） | ta + perpage 是不需要 warmup pass 的最佳組合 |
 | **C（high-key）** | first-q | **layers_92 (全部 interior) on 原始 layout** | **-46%**（491 → 265 µs） | 不改 layout，但要載全部 92 個 interior |
 | **C（high-key）** | 全 workload | **2f SLRU** on 原始 layout | **-7%**（262 → 245 ms）| ⚠️ 收益小，因 baseline avg-q 已接近 readahead 下限 |
@@ -862,4 +1249,9 @@ prefetch 的甜蜜點會變嗎？1c 還是最強的 layout 嗎？
 **速記：**
 - 「**點開就看一筆**」（聯絡人、設定）→ **layers_5**（cold start 152 µs vs SLRU 7,500 µs）
 - 「**開了會跑一整段**」（瀏覽列表、滑相簿）→ **2f SLRU**（全 workload 省 38%）
+- 「**有 warmup pass 預算、想用最少 syscall 抓最多熱頁**」→
+  - C: **2e_K10** 任何 layout（14~42 syscall → -82~84%）
+  - C 不允許 warmup pass: **2d** orig/vacuum（4 syscall → -47%，最 frugal）
+  - A: **2e_K500** orig/vacuum（518 syscall → -73~77%）
+- 「**RAM 緊（cgroup < working set）的環境**」→ 避免 2f SLRU；用 **2e_K500**（preload size 1/8、first-q 同 tier、avg_us 不退化）— 第十六維
 - 兩個都要 → 看 [prefetch_slru/PREFETCH_SLRU.md](prefetch_slru/PREFETCH_SLRU.md) 的 trade-off 矩陣

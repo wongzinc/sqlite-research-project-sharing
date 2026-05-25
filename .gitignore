@@ -20,6 +20,10 @@ prefetch_churn/classify_pages
 prefetch_churn/prefetch_layers
 prefetch_churn/residency_checker
 prefetch_churn/runs_nsweep/evict
+prefetch_access/src/prefetch_access
+prefetch_access/runs/benchmark_harness
+prefetch_access/runs/prefetch_access
+prefetch_access/runs/prefetch_slru
 
 # --- Convenience symlinks to canonical workloads/ ---
 prefetch_churn/generated_workloads/
