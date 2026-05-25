@@ -81,3 +81,5 @@ prefetch_churn/runs_access_churn/run_all.log
 multiprocess/runs_prefetch_cadence/rec/
 multiprocess/runs_prefetch_cadence/work*.db
 multiprocess/runs_prefetch_cadence/cadence_run*.log
+
+.claude/
