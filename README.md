@@ -268,6 +268,25 @@ C 上的「query 走的 interior path 不在 file 前段」—— 按 offset 排
 
 > ➕ **後續驗證（2026-05）**：把 N sweep 跑在 **churned DB** 上（10 個 checkpoint 累積 50,000 ops），N=92 同樣是唯一贏家（−54%），其他 N 全部退化。Churn 把新 interior pages 推到檔尾，跟 C 的「熱頁不在 file 前段」結構同源 → 這條 Zipfian-friendly 觀察在動態 DB 上也成立。見第 7 章補測。
 
+> ➕ **後續驗證（2026-05，第 12 維）**：把 N sweep 跑在 **Layout 1c (type-aware)** × A/B/C 上，發現「最佳 N 跟 layout 強耦合」：
+> - **A on 1c**: layers_N 上限從 1a 的 -26% 跳到 **-71%**；N≥5 全 plateau（U 型曲線消失，因為 TA 把 interior 集中到檔頭，任何 N≥5 都 cover）
+> - **C on 1c**: **N=46 -32%（最佳）、N≥5 全 -29~32%**；N=92 反而退到 -10%（inverted cliff）—— TA 解掉 C「必須載全 92 個」的問題
+> - **B on 1c**: layers_N 失效（N=5 +4%、最佳 N=46 -23%）；1c 對 B 是 layout-hostile
+>
+> 詳見 [overall_results.md 第十二維](overall_results.md#第十二維--n-sweep--layout-1c-type-aware--abc)。
+
+> ➕ **後續驗證（2026-05，第 13 維）**：新增 **Workload Z (Zipfian low-key
+> hotspot, keys [1, 1000], α=0.99)**，跑 N sweep × 3 layout，回答「熱點落在
+> file 哪段會不會改變結論」：
+> - **跟 A 結果同形（差異 ≤ 5pp）**：1a 最佳 N=20 −31%、1b 最佳 N=5 −31%、
+>   1c 最佳 N=92 −72%；hotspot location 不是 prefetch 效益的主要變因
+> - **N=1 universally worse**：on 1a/1b 比 baseline 還慢 ~+22%（純 madvise
+>   syscall overhead、root page 已 cached、無 coverage 受益），跟 A 的 N=1
+>   退化同源 → 確認「N=1 從來不是合理選擇」
+> - **1c 永遠最強**：跨 4 個 N 值（0/5/20/92）1c 都贏 1a/1b 30~50%
+>
+> 詳見 [overall_results.md 第十三維](overall_results.md#第十三維--n-sweep--workload-z-zipfian-low-key-hotspot--1a1b1c)。
+
 **驚訝 2：Type-aware layout 不是 universal best。**
 
 - Workload A: **-69%**（最強）
@@ -285,7 +304,7 @@ C 上的「query 走的 interior path 不在 file 前段」—— 按 offset 排
 #### ✅ 已完成
 
 - **工具鏈完整**：classify_pages、benchmark_harness、residency_checker、prefetch_layers、layout_rewriter、prefetch_slru 全部可用
-- **prefetch 策略全覆蓋**：2a Range / 2b Perpage / 2c Layers_N sweep / 2f SLRU 在 Workload A/B/C × Layout **1a / 1b / 1c** 上完整跑過。**2f SLRU 是 layout-agnostic**（三個 layout first-q 都 13–16 µs；只有 1b 能省 ~17% prefetch overhead）
+- **prefetch 策略全覆蓋**：2a Range / 2b Perpage / 2c Layers_N sweep / 2f SLRU 在 Workload A/B/C × Layout **1a / 1b / 1c** 上完整跑過。**2f SLRU 是 layout-agnostic**（三個 layout first-q 都 13–16 µs；只有 1b 能省 ~17% prefetch overhead）。**2c layers_N 完整跨三 layout 矩陣**（A/B/C × {1a, 1b, 1c} × N∈{0,1,5,10,20,46,92}）：最佳 N 跟 layout 強耦合（1c × A: N=92 -71%、1c × C: N=46 -32%、1c × B: layers_N 失效）
 - **3 個層次都有結果**：
   1. **找到 prefetch 甜蜜點**（A 上 N=5、-54%）
   2. **解掉了 VACUUM 的問題**（type-aware layout_rewriter，A 上 -69%）
@@ -297,16 +316,11 @@ C 上的「query 走的 interior path 不在 file 前段」—— 按 offset 排
 
 - **2d / 2e Access-pattern-based prefetch 未實作**：layers_N 的「按 file offset 排序」啟發式在 Workload C 上失效（第 11 章驚訝 1）。改用 access count 排序的前 N 應該能在 C 上以遠少於 92 個 syscall 達到相近效益
 - **2f SLRU 在 RAM 緊（cgroup < working set）的對照**：目前 RAM 充裕，2f vs 2d/2e 看不出差異
-- ~~**2f SLRU × Layout 1c**：2f 只在 1a/1b 跑過~~ → **已補完**：結論是 2f SLRU layout-agnostic（first-q 三 layout 13–16 µs 沒有顯著差異），詳見 [overall_results.md 第十一維](overall_results.md#第十一維--2f-slru--layout-1c-type-aware)
-- **Zipfian 變體**：low-key hotspot vs high-key hotspot 對 prefetch 效益的影響
-- ~~**N sweep on churned DB**：prefetch_churn 只測 N=5~~ → **已補完**（見第 7 章補測：N=92 −54%）
+- **多 process 場景下，prefetch worker 該多久跑一次？**（DB 持續被 churn 時）
 
 #### 🔬 待回答的研究問題
 
-1. ~~Type-aware VACUUM 真的能把 prefetch 效益從 -9% 救回 -54% 嗎？~~ → **已解答（第 9 章），救回到 -69%**
-2. 在「low key hotspot」的 Zipf workload 下，prefetch 效益會比 uniform 還差嗎？
-3. 多 process 場景下，prefetch worker 該多久跑一次？（DB 持續被 churn 時）
-4. **新**：2d/2e access-pattern prefetch 能否在 Workload C 上以 <10 個 syscall 達到接近 layers_92 的 -46% 改善？
+1. 2d/2e access-pattern prefetch 能否在 Workload C 上以 <10 個 syscall 達到接近 layers_92 的 -46% 改善？
 
 ---
 

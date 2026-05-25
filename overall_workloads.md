@@ -174,10 +174,13 @@ layout 上還剩多少效益」。
 
 ## 已知缺口（workload 層級）
 
-- **Zipfian「low-key hotspot」變體**：目前的 Workload A 雖然 Zipfian，但熱點
-  分佈在 8..99k 整個區段裡。若把熱點壓到 [1, 1000] 這種極窄區，prefetch 效益
-  會跟 [99k, 100k] 完全不同（前者 ≈ append-only churn pattern，後者 ≈ random
-  churn pattern）。**這兩個變體還沒測**。
+- ~~**Zipfian「low-key hotspot」變體**~~：已補（見
+  [overall_results.md 第十三維](overall_results.md#第十三維--zipfian-low-key-hotspot-variantworkload-z--n-sweep--3-layouts)）。
+  新增 **Workload Z (Zipfian low-key)**：α=0.99, keys [1, 1000], top key 拿走
+  13% 讀。結論：跟 mid-key Workload A 結果幾乎同形（差 ≤ 5pp），**「熱點落在哪
+  個 key 區段」對 prefetch 效益不是主要變因**；layout 才是。
+  「[99k, 100k] high-key hotspot」邏輯上與 Workload C 重疊（後者是 high-key
+  uniform），不另跑。
 - ~~**N 在 churned DB 上的曲線**~~：已補（見
   [overall_results.md 第十維](overall_results.md#第十維--n-sweep--workload-c--churned-db補齊-prefetch_churn-缺口)）。
   結論：churned DB 上 N≤46 在 -10% 附近 plateau，**N=92 帶來 -54% 改善並在
@@ -199,7 +202,7 @@ layout 上還剩多少效益」。
 |---|---|---|---|
 | **Layout 1a (orig)** | ✅ 全策略 | ✅ 全策略 | ✅ 全策略 |
 | **Layout 1b (VACUUM)** | ✅ baseline + range/perpage/layers_5 + **N sweep + 2f SLRU** | ✅ 全策略 | ✅ 全策略 |
-| **Layout 1c (type-aware)** | ✅ baseline + range/perpage/layers_5 + **2f SLRU** | ✅ baseline + range/perpage/layers_5 + **2f SLRU** | ✅ baseline + range/perpage/layers_5 + **2f SLRU** |
+| **Layout 1c (type-aware)** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU | ✅ baseline + range/perpage + **N sweep** + 2f SLRU | ✅ baseline + range/perpage + **N sweep** + 2f SLRU |
 | **Churn 漂移** | — | — | ✅ 10 checkpoints × **N sweep {0,1,5,10,20,46,92}** |
 
 B 早就不再只是「對照組」 — 它是 prefetch 失敗模式（leaf fault 主導）和 ta

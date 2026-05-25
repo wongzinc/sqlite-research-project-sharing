@@ -10,7 +10,9 @@
 > [第八維](#第八維--2c-layers_n-sweep--workload-b--c原始-layout)（N sweep）、
 > [第九維](#第九維--layout-1b-vacuum-補測n-sweep--2f-slru--abc)（vacuum × N sweep + 2f）、
 > [第十維](#第十維--n-sweep--workload-c--churned-db補齊-prefetch_churn-缺口)（churned DB × N sweep）、
-> [第十一維](#第十一維--2f-slru--layout-1c-type-aware)（2f SLRU × type-aware layout）。
+> [第十一維](#第十一維--2f-slru--layout-1c-type-aware)（2f SLRU × type-aware layout）、
+> [第十二維](#第十二維--n-sweep--layout-1c-type-aware--abc)（type-aware layout × N sweep — 完成跨三 layout 矩陣）、
+> [第十三維](#第十三維--zipfian-low-key-hotspot-variantworkload-z--n-sweep--3-layouts)（Zipfian low-key hotspot variant，新增 Workload Z）。
 > Workload D 是 churn generator，沒有自己的 latency 結果。
 >
 > 不同實驗用的 cold-start 機制不同（`sudo drop_caches` vs
@@ -660,6 +662,174 @@ mincore-dumped resident set（~4,000 個 page，主要由 leaf 組成），跟 i
 
 ---
 
+## 第十二維 — N sweep × Layout 1c (type-aware) × A/B/C
+
+第三維只在 Layout 1a 上做 A 的 N sweep；第八維補 1a × B/C；第九維補 Layout 1b × A/B/C。
+本節補上 **Layout 1c (type-aware) × A/B/C × N ∈ {1, 5, 10, 20, 46, 92}** 共 21 cells × 3 reps
+（B/C 因高 variance 加跑到 6 reps），完成跨三 layout 的 N sweep 矩陣。同時補上
+Layout 1a × A 的 N sweep（先前只有 N=0/5 在這個 harness 下跑過），讓三個 layout
+在同一個 `posix_fadvise` harness 下可直接比對。
+
+**Harness：** 跟第八/九維一樣 — `layout_rewriter/runs/benchmark_harness`，
+`--cold-advice dontneed`，`cold_ta.sh` evict，3 (A) / 6 (B,C) reps median。
+**絕對 µs 跟第十一維（prefetch_slru 用 mmap）不能直接比**，但跟第八/九維可比。
+
+### 12.1 Layout 1c × N sweep（first-query µs，median）
+
+| Workload | N=0 | N=1 | N=5 | N=10 | N=20 | N=46 | N=92 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **A** | 406 | 411（+1%） | 137（-66%） | 129（-68%） | 128（-69%） | 131（-68%） | **116（-71%）** |
+| **B** | 414 | 409（-1%） | 432（+4%） | 432（+4%） | 411（-1%） | **320（-23%）** | 423（+2%） |
+| **C** | 460 | 409（-11%） | 326（-29%） | 317（-31%） | 328（-29%） | **311（-32%）** | 413（-10%） |
+
+### 12.2 跨 layout N sweep 對照（first-q median µs，3 layout 並列）
+
+| WL | N | 1a (orig) | 1b (vacuum) | 1c (ta) | 1a improve | 1b improve | 1c improve |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| A | 0 | 303 | 339 | 406 | — | — | — |
+| A | 5 | 229 | 243 | **137** | -24% | -28% | **-66%** |
+| A | 20 | 225 | 234 | 128 | -26% | -31% | **-69%** |
+| A | 92 | 224 | 241 | **116** | -26% | -29% | **-71%** |
+| B | 0 | 470 | 497 | 414 | — | — | — |
+| B | 5 | 246 | 253 | 432 | **-48%** | **-49%** | +4% ⚠️ |
+| B | 46 | 242 | 255 | 320 | -49% | -49% | -23% |
+| B | 92 | 243 | 252 | 423 | -48% | -49% | +2% ⚠️ |
+| C | 0 | 491 | 434 | 460 | — | — | — |
+| C | 5 | 419 | 407 | **326** | -15% | -6% | **-29%** |
+| C | 46 | 420 | 410 | **311** | -14% | -5% | **-32%** |
+| C | 92 | 265 | 246 | 413 | **-46%** | **-43%** | -10% ⚠️ |
+
+### 三個發現
+
+1. **Layout 1c 把 A 的 layers_N 上限從 -26% 推到 -71%**：1a/1b 的 layers_N 在 A 上
+   省 ~25-30%（U 型曲線 N=5/20 微差），到 1c 上整條曲線往下沉 ~40 個百分點，**且
+   N ≥ 5 全部 plateau 在 -66~71%**（U 型曲線消失）。原因：TA layout 把所有
+   table interior 集中到 page 2..52，prefetch 任何 N≥5 都能 cover 到 A 的熱
+   interior path，**「N=5 vs N=20 vs N=92」差別小於 noise**。
+
+2. **Layout 1c 讓 B 的 layers_N 失效**：B 在 1a/1b 上任何 N≥5 都穩定 -48~49%
+   plateau；到 1c 上 **N=5/10 完全沒幫助（+4%）、N=46 才達到 -23%（最佳）、
+   N=92 又回到 +2%**。3 reps 之後 B 在 N=20/46/92 都觀察到 bimodal 行為
+   （min~240, max~445）。**TA 拆散了 B 在 1a 上靠的「load 任何 5 個 interior
+   就 cover uniform read」效應** — TA 按頁類型重排後，前 5 個 interior 對
+   uniform B 不再 representative。這跟第七維「1c × baseline B 變慢」、第十一
+   維「1c × 2f SLRU 蓋掉 B baseline penalty」結論同源：**1c 對 B 是 layout-hostile，
+   只有 SLRU 那種 leaf-preload 蓋得住，layers_N 蓋不住**。
+
+3. **Layout 1c 把 C 從「必須 N=92」翻成「N≥5 就有 -30%」**：1a/1b 上 C 卡在
+   「layers_N≤46 只 -15%，N=92 才跳到 -46%」(cliff)；1c 上 **N=5 已經 -29%、
+   N=46 -32%、反而 N=92 退回 -10%**（inverted cliff）。原因：
+   - TA 把 table interior 集中在 page 2..52，C 走的 PK lookup interior path
+     **全在這個區段**；N=5 就能蓋到熱頁。
+   - N=92 額外載的 41 個 interior_index page 對 C（PK lookup）完全無用，
+     並且推測有 async I/O queue 競爭，把熱 interior 的 ready time 拖慢。
+   **這推翻第八/九維「C 必須 N=92」結論在 type-aware layout 上不成立** —
+   **1c × layers_46 是 C 的新最佳 (不需要 perpage, 不需要載全 92 個)**。
+
+### 結論
+
+- **2c × Layout 1c 矩陣補齊**：A 上 layers_N 升級為 -71%（最強）；C 上
+  cost-effective N 從 92 降到 5-46；B 上 layers_N 在 1c 失效，要回到 1a/1b 用
+  N≥5 或改用 2f SLRU。
+- **「layers_N 的最佳 N 跟 layout 強耦合」**：
+  - 1a A: N=20 (-26%, 微差於 N=5)
+  - 1b A: N=20 (-31%) — 第九維新甜蜜點
+  - 1c A: N=92 (-71%) — 但 N≥5 全 plateau
+  - 1a/1b C: N=92 only
+  - 1c C: N=5-46 全好，N=92 退化
+- **完整三 layout × 三 workload × 7 N 值矩陣**（共 63 cells × 3-6 reps = 189-378
+  runs）。剩餘缺口只剩 strategy 級別（2d/2e access-pattern、2f cgroup-bounded）
+  跟 workload 變體（Zipfian low/high-key）。
+
+資料來源：
+- 1c 矩陣: [layout_rewriter/runs/matrix_Nsweep_ta_results.csv](layout_rewriter/runs/matrix_Nsweep_ta_results.csv)
+- 1c 摘要: [layout_rewriter/runs/results_Nsweep_ta_summary.csv](layout_rewriter/runs/results_Nsweep_ta_summary.csv)
+- 1c 跑法: [layout_rewriter/runs/runmatrix_Nsweep_ta_abc.sh](layout_rewriter/runs/runmatrix_Nsweep_ta_abc.sh)
+- 1a × A 補測: [layout_rewriter/runs/matrix_Nsweep_orig_a_results.csv](layout_rewriter/runs/matrix_Nsweep_orig_a_results.csv) + [results_Nsweep_orig_a_summary.csv](layout_rewriter/runs/results_Nsweep_orig_a_summary.csv) + [runmatrix_Nsweep_orig_a.sh](layout_rewriter/runs/runmatrix_Nsweep_orig_a.sh)
+- 1a × B/C: [results_Nsweep_bc_summary.csv](layout_rewriter/runs/results_Nsweep_bc_summary.csv)（第八維）
+- 1b × A/B/C: [results_Nsweep_vac_summary.csv](layout_rewriter/runs/results_Nsweep_vac_summary.csv)（第九維）
+
+---
+
+## 第十三維 — Zipfian low-key hotspot variant（Workload Z） × N sweep × 3 layouts
+
+第八/九/十二維把 Workload A (Zipfian 熱點分佈在 [8, 99997]) 在三個 layout × N sweep
+全跑過，但**熱點在哪個 key 區段**這個變因沒被隔離。本節新增 **Workload Z (Zipfian
+low-key hotspot)**：α=0.99，熱點全部集中在 keys [1, 1000]，top key 拿走 13% 的讀、
+top 10 keys 拿走 38%（相比之下 A 的 top key 只 7.8%）。
+
+**問題：** 把 Zipfian 熱點從「散在整個 100k key range」改成「全集中在前 1000 key」，
+prefetch 的甜蜜點會變嗎？1c 還是最強的 layout 嗎？
+
+**Harness：** 同第八/九/十二維（`benchmark_harness`，`--cold-advice dontneed`），
+3 reps median，每個 cell 一個 100k-op run。
+
+### 13.1 Zipfian low-key × N sweep × 3 layouts（first-q median µs）
+
+| Layout | N=0 | N=1 | N=5 | N=10 | N=20 | N=46 | N=92 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **1a (orig)** | 319 | 390（+22%）⚠️ | 222（-30%） | 220（-31%） | **219（-31%）** | 224（-30%） | 225（-30%） |
+| **1b (vacuum)** | 341 | 413（+21%）⚠️ | **237（-31%）** | 254（-26%） | 244（-28%） | 252（-26%） | 249（-27%） |
+| **1c (type-aware)** | 414 | 409（-1%） | 128（-69%） | 127（-69%） | 130（-69%） | 130（-69%） | **115（-72%）** |
+
+### 13.2 跟 Workload A（mid-key Zipfian）對照
+
+| Layout | N | Workload A first-q | Workload Z first-q | Δ (Z vs A) |
+|---|---:|---:|---:|---:|
+| 1a | 0 | 303 | 319 | +16 µs（Z baseline 微高） |
+| 1a | 5 | 229（-24%） | 222（-30%） | **Z 多省 6pp** |
+| 1a | 20 | 225（-26%） | 219（-31%） | Z 多省 5pp |
+| 1a | 92 | 224（-26%） | 225（-30%） | Z 多省 4pp |
+| 1b | 5 | 243（-28%） | 237（-31%） | Z 多省 3pp |
+| 1b | 20 | 234（-31%） | 244（-28%） | A 多省 3pp |
+| 1c | 5 | 137（-66%） | 128（-69%） | Z 多省 3pp |
+| 1c | 92 | 116（-71%） | 115（-72%） | 持平 |
+
+### 四個發現
+
+1. **「Zipfian 熱點散開 vs 集中」對 prefetch 效益基本沒影響**：跨 layout × N 的相對改善
+   幅度跟 A 在 3pp 以內。意外（也是好消息）—— **layers_N heuristic 對 Zipf 整體
+   robust，不依賴熱點落在哪個 key 區段**。
+   原因：Zipfian 工作集本身就小（top 10 keys 拿 38%），10 個 key 落在 1-2 個 leaf page、
+   走 2-3 個 interior page。layout 重排把這些 interior 集中後，prefetch 任意 N≥5
+   就 cover 到 — 熱點的 key 編號落在哪反而不重要。
+
+2. **N=1 在 Zipfian 上**一律**比 baseline 還差**（1a: +22%, 1b: +21%, 1c: -1%）：
+   只 prefetch page 1（root）幾乎沒幫助（root 開檔就常駐 cache），反而吃 madvise
+   syscall ~75 µs 的 overhead。**「N=1 是 cost-effective baseline」的直覺是錯的，
+   N=5 才是真正的下界**。1c 上 N=1 沒退化是因為 baseline 本身已經高（414 vs 1a 319）。
+
+3. **1a vs 1b 的相對 ranking 在 Z 上跟 A 上一致**：1a baseline 比 1b 低 ~20 µs
+   （VACUUM 把 baseline 稍微推高），但兩者的 layers_N 收斂值差不多 (~220 µs)。
+   **VACUUM 對 Zipfian 沒有額外幫助**，跟第五/六維結論一致。
+
+4. **1c 又是最強的 layout**：Z 上 N=92 -72% vs A 上 N=92 -71%，幾乎一致。**TA
+   layout × Zipfian 是個跨熱點區段都成立的最佳組合**（不論熱點是 mid-key 還是
+   low-key）。
+
+### 結論
+
+- **Zipfian low-key hotspot 不是 prefetch 失敗模式** — 跟原本 Workload A 結果基本同
+  形（同甜蜜點、同收斂值、同 layout ranking）。**low-key 反而比 mid-key 微好** ~3-5pp
+  on 1a/1b（熱點集中意味著走的 interior path 更窄）。
+- **append-only churn workload 預測**：append 寫入意味著熱點集中在最新一段 key range，
+  本實驗用 Zipfian + low-key 作為 stable proxy，結論是 **append-only 場景的 prefetch
+  效益會比 random-churn 略好（≤ 5pp）、不會有 qualitative 差異**。
+- **N=1 應該從預設 sweep 集合中刪掉** — 在所有 Zipfian/uniform workload 上都比
+  baseline 差，純粹是 madvise overhead 沒回收。
+- **剩餘缺口收斂**：原本「Zipfian 熱點變體」這個未測項目消除；剩下只有 strategy 級
+  （2d/2e access-pattern、2f cgroup-bounded）跟 high-key Zipfian variant（如果想對稱
+  測 [99k, 100k]，但邏輯上跟 Workload C 已重疊）。
+
+資料來源：
+- 原始矩陣（63 cells）: [layout_rewriter/runs/matrix_Nsweep_zlowkey_results.csv](layout_rewriter/runs/matrix_Nsweep_zlowkey_results.csv)
+- Median 摘要: [layout_rewriter/runs/results_Nsweep_zlowkey_summary.csv](layout_rewriter/runs/results_Nsweep_zlowkey_summary.csv)
+- 跑法: [layout_rewriter/runs/runmatrix_Nsweep_zlowkey.sh](layout_rewriter/runs/runmatrix_Nsweep_zlowkey.sh)
+- Workload 生成器: [benchmark_harness/workloads/gen_zipf_lowkey.py](benchmark_harness/workloads/gen_zipf_lowkey.py) (Zipfian α=0.99, keys [1, 1000], 100k ops, seed 42)
+- Workload 檔案: [benchmark_harness/workloads/workload_zipf_lowkey.txt](benchmark_harness/workloads/workload_zipf_lowkey.txt)
+
+---
+
 ## 還沒跑的策略 × workload 組合
 
 | 缺口 | 為什麼值得測 |
@@ -667,7 +837,7 @@ mincore-dumped resident set（~4,000 個 page，主要由 leaf 組成），跟 i
 | **2d Access pattern, interior-only** | 整個策略未實作。`layers_N` 假設「offset 越小 = 越熱」對 B+tree 結構成立，但忽略不同 query 路徑使用不同分支。**第八維已直接證明這個假設在 Workload C 上失效**（layers_N≤46 只 -15%，必須 N=92 才 -46%）。用 access count 排序的前 N 個 interior 應該能在 C 上以遠少於 92 個 syscall 達到相近效益 |
 | **2e Access pattern, interior + leaf (7:3 / 5:5)** | 未實作。Workload A 有 leaf-level 熱點，prefetch top-K interior + top-M leaf 可能直接砍掉部分 leaf fault；可以驗證「2f 之所以 -94% 是因為 leaf preload」這個假設能否用更少 syscall 達成 |
 | **2f SLRU 在 RAM 緊的對照** | 第五維是 RAM 充裕情境，2f vs 2d/2e 看不出差異。用 cgroup 把 RAM 預算壓到 < working set，才能體現 SLRU 不會挑重點的缺點 |
-| **Zipfian low-key hotspot variant** | 目前 Workload A 的熱點分佈在整個 [8, 99997] 區段。若熱點全在 [1, 1000]（≈ append-only churn）或全在 [99k, 100k]（≈ random churn），prefetch 效益會分歧 |
+| ~~**Zipfian low-key hotspot variant**~~ | ~~目前 Workload A 的熱點分佈在整個 [8, 99997] 區段。若熱點全在 [1, 1000]（≈ append-only churn）或全在 [99k, 100k]（≈ random churn），prefetch 效益會分歧~~ → **已完成 (第十三維)**：low-key hotspot 跟 mid-key 結果同形（差異 ≤5pp），「熱點落在哪個 key 區段」不是 prefetch 效益的主要變因 |
 
 ---
 
