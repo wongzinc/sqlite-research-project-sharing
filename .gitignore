@@ -43,6 +43,14 @@ prefetch_churn/generated_workloads/
 *.db-wal
 *.db-shm
 
+# --- Generated SQL patches (layout_rewriter emits this per-DB to fix
+#     sqlite_master.rootpage; regenerable by re-running layout_rewriter) ---
+layout_rewriter/runs/fix.sql
+
+# --- Early prefetch_vacuum per-rep ops traces (same category as the global
+#     ops_*_r[0-9].csv rule below, just with the legacy naming missing _rN) ---
+prefetch_vacuum/results/ops_*.csv
+
 # --- Benchmark run artifacts ---
 bench_records/
 bench_records_*/
