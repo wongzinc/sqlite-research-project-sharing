@@ -43,6 +43,14 @@ prefetch_churn/generated_workloads/
 *.db-wal
 *.db-shm
 
+# --- Generated SQL patches (layout_rewriter emits this per-DB to fix
+#     sqlite_master.rootpage; regenerable by re-running layout_rewriter) ---
+layout_rewriter/runs/fix.sql
+
+# --- Early prefetch_vacuum per-rep ops traces (same category as the global
+#     ops_*_r[0-9].csv rule below, just with the legacy naming missing _rN) ---
+prefetch_vacuum/results/ops_*.csv
+
 # --- Benchmark run artifacts ---
 bench_records/
 bench_records_*/
@@ -95,6 +103,30 @@ prefetch_churn/runs_access_churn_b/*/interior_pages.csv
 prefetch_churn/runs_access_churn_b/*/evict.sh
 prefetch_churn/runs_access_churn_b/*/test_churn.db*
 prefetch_churn/runs_access_churn_b/run_all.log
+
+# Full N=0..92 dense sweeps (第十九維): same pattern as runs_nsweep_* — keep
+# benchmark_summary.csv / interior_summary.csv + aggregated matrix_*.csv + scripts,
+# ignore per-N intermediates (~14 GB per workload churn dir, 7.5 GB clean-DB matrix)
+prefetch_churn/runs_nsweep_full_a/n*/benchmarks/
+prefetch_churn/runs_nsweep_full_a/n*/checkpoints/
+prefetch_churn/runs_nsweep_full_a/n*/interior_pages.csv
+prefetch_churn/runs_nsweep_full_a/n*/evict.sh
+prefetch_churn/runs_nsweep_full_a/n*/test_churn.db*
+prefetch_churn/runs_nsweep_full_b/n*/benchmarks/
+prefetch_churn/runs_nsweep_full_b/n*/checkpoints/
+prefetch_churn/runs_nsweep_full_b/n*/interior_pages.csv
+prefetch_churn/runs_nsweep_full_b/n*/evict.sh
+prefetch_churn/runs_nsweep_full_b/n*/test_churn.db*
+prefetch_churn/runs_nsweep_full_c/n*/benchmarks/
+prefetch_churn/runs_nsweep_full_c/n*/checkpoints/
+prefetch_churn/runs_nsweep_full_c/n*/interior_pages.csv
+prefetch_churn/runs_nsweep_full_c/n*/evict.sh
+prefetch_churn/runs_nsweep_full_c/n*/test_churn.db*
+
+# Clean-DB full N-sweep matrix intermediates (final = full_{orig,vacuum,ta}.csv)
+layout_rewriter/runs/nsweep_full/bench_records/
+layout_rewriter/runs/nsweep_full/ops_csv/
+layout_rewriter/runs/nsweep_full/run_all.log
 
 # Multi-process prefetch cadence: rec/ holds per-probe benchmark_harness records
 # + 100-line workload slices, regenerable from cadence_experiment.py

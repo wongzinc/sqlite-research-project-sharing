@@ -260,10 +260,10 @@ layout 上還剩多少效益」。
 
 | | A (Zipfian) | B (Uniform) | C (high-key) |
 |---|---|---|---|
-| **Layout 1a (orig)** | ✅ 全策略 + **RAM 20M** | ✅ 全策略 + **RAM 20M** | ✅ 全策略 + **RAM 20M** |
-| **Layout 1b (VACUUM)** | ✅ baseline + range/perpage/layers_5 + **N sweep + 2f SLRU + 2d/2e + RAM 20M** | ✅ 全策略 + **2d/2e + RAM 20M** | ✅ 全策略 + **2d/2e + RAM 20M** |
-| **Layout 1c (type-aware)** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** |
-| **Churn 漂移** | ✅ **N sweep + 2d/2e × delete-churn** | ✅ **N sweep + 2d/2e × churn** | ✅ 10 checkpoints × **N sweep + 2d/2e × insert-churn** |
+| **Layout 1a (orig)** | ✅ 全策略 + **RAM 20M** + **dense N=0..92** | ✅ 全策略 + **RAM 20M** + **dense N=0..92** | ✅ 全策略 + **RAM 20M** + **dense N=0..92** |
+| **Layout 1b (VACUUM)** | ✅ baseline + range/perpage/layers_5 + **N sweep + 2f SLRU + 2d/2e + RAM 20M** + **dense N=0..92** | ✅ 全策略 + **2d/2e + RAM 20M** + **dense N=0..92** | ✅ 全策略 + **2d/2e + RAM 20M** + **dense N=0..92** |
+| **Layout 1c (type-aware)** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** |
+| **Churn 漂移** | ✅ **N sweep + 2d/2e × delete-churn** + **dense N=0..92 × churn** | ✅ **N sweep + 2d/2e × churn** + **dense N=0..92 × churn** | ✅ 10 checkpoints × **N sweep + 2d/2e × insert-churn** + **dense N=0..92 × churn** |
 | **RAM-pressure 全矩陣** | ✅ 7 strategies × 1a/1b/1c × {20M, none} × 6 reps | ✅ 同左 | ✅ 同左 |
 
 B 早就不再只是「對照組」 — 它是 prefetch 失敗模式（leaf fault 主導）和 ta
@@ -273,3 +273,8 @@ RAM-pressure 矩陣現已涵蓋 **9 個 (workload × layout) cell × 7 個策略
 全部以 6 reps median 聚合（756 cells，第十六維）。原本只測 A × 1a × 4 策略
 的 48-cell 縮影矩陣完全被取代，且新舊矩陣在 A × 1a × 4 策略上誤差 ≤ 3 µs
 （交叉驗證）。
+
+**Dense N=0..92 全 sweep（第十九維）** 進一步把每個 (workload × layout) 的
+layers_N 從 6 個採樣點補成全 93 個值 × 3 reps：clean DB 2,511 cells + churn DB
+3,069 cells = **~5,580 額外 benchmark**。發現 sparse 6-pt 在 9/12 cell 結論正確，
+但漏掉 3 個 sweet spot：**A × 1b N=62 -31% / B × 1c N=26 -36% / C × 1b N=87 -57%**。
