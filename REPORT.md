@@ -10,7 +10,7 @@
 
 - SQLite 把整個資料庫存成一個 **4 KB page 的陣列**，用 B+tree 組織。
 - 每筆 query 都要**從 root 走到 leaf**，沿路的 **interior page（interior node）全部都要在 memory 裡**。
-- **Cold start**（剛開機、cache 是空的）時，這些 page 都得從 disk 讀，每讀一個就是一次慢速的 random I/O。
+- **Cold start**（cache 是空的）時，這些 page 都得從 disk 讀，每讀一個就是一次慢速的 random I/O。
 
 **核心問題：能不能在 first query 之前，先把這些關鍵 page 載進 memory？**
 
@@ -47,6 +47,32 @@
 ### 怎麼量
 
 Cold start → 清空 OS page cache → 執行 prefetch → 量 first query 花多久。
+
+### 我們量的是「warm process, cold data」cold start（pragmatic choice）
+
+嚴格 textbook 的 cold start 是「機器剛開機、process 從來沒跑過、所有 cache 都空」，
+但這在 benchmark 環境**做不到也不實用**（要每筆量都 reboot），所以我們選了一個務實的版本：
+
+| 層 | 我們的狀態 | 嚴格 cold 要求 |
+|---|---|---|
+| **OS page cache（DB 內容）** | ✅ **每筆量前用 `posix_fadvise(DONTNEED)` 清掉** | 完全空 ✓ |
+| **磁碟 I/O** | ✅ majflt > 0 證實確實到 disk | 必須 physical I/O ✓ |
+| **SQLite handle / pager** | ⚠️ **預先開好**（PRAGMA cache_size=0、statement 已 prepare）| 從未 open |
+| **mmap()** | ⚠️ **預先建立**（mapping 在、但 page 還沒 fault 進來）| 從未呼叫 |
+| **CPU 指令 cache / TLB / branch predictor** | ⚠️ **已 warm**（harness 程式碼之前跑過很多次）| 全部冷 |
+
+**為什麼這樣選**：
+- **跟真實情境更接近**：手機 app / server worker 大多時候是「process 已 running、SQLite 已 load、schema 已 introspect」，使用者按下去那筆 query 才是 cold data。
+- **隔離我們關心的變數**：要量「prefetch 對 page fault 路徑的影響」。SQLite parser/optimizer 的啟動時間是常數，混進去只會增加 noise、不會 reveal 任何 prefetch 機制相關的東西。
+- **可重複性高**：「process from scratch」會多出 50-200 µs 的 SQLite 初始化 noise，需要更多 reps 才壓得住。
+
+**這個選擇對結果的影響**：
+- 對 first_query 數字大約**少算 1-3 µs**（CPU cache / TLB 之類熱了一點點）
+- 對 baseline ~500 µs 來說 < 1%，可忽略
+- 對 first-q 只剩 14 µs 的 2f SLRU 約 ~10%，但**不改變結論**（2f 的 preprocessing 1.8 ms 仍然 dominate）
+
+> Harness 已支援更嚴格的模式：`--sqlite-open-timing=after-cold` + `--schema-init-timing=after-cold`，
+> 但本報告**全部使用預設的 "warm process, cold data"** 模式，所有數字一致可比。
 
 ---
 
