@@ -11,43 +11,9 @@
 
 ## Abstract
 
-**摘要**——隨著 SQLite 廣泛部署於行動裝置、IoT 與桌面應用，其 cold-start
-讀取效能逐漸成為使用者體驗的關鍵瓶頸，並衍生出兩個尚未被同時解決的核心
-挑戰：**prefetch 目標選擇（targeting）** 與 **preprocessing 成本核算
-（cost-accounting）**。就 targeting 而言，作業系統與應用層皆缺乏對
-SQLite B+tree 內部 page-type 結構的可見性，盲目 prefetch 會將 I/O 浪費
-在大量無關 page 上，無法精準命中真正主導 cold-start cost 的少數關鍵
-page；就 cost-accounting 而言，既有 prefetch 策略多僅優化 first-query
-latency，未將 prefetch 本身的 preprocessing 開銷納入 end-to-end cold-start
-真實成本評估，造成「first-query 改善幅度」與「真實 cold-start cost」之間
-的系統性誤導。SQLite 因其輕量嵌入式設計、零組態部署與廣泛 SQL 相容性，
-是此議題最具代表性的研究對象，然而現有 SQLite 相關文獻多聚焦於寫入路徑
-（fsync、WAL、journal mode），對 cold-start 讀取路徑的系統性分析仍付
-之闕如；現有跨領域工作中，作業系統層的 readahead 僅依賴 sequential
-pattern detection、無法針對 page-type 做精準預判，DBMS 層的 buffer
-pool warming 又須侵入式修改 engine、且皆未將 preprocessing 計入真實
-成本。為彌補此 gap，我們提出一套結合 **page-type-aware
-物理 layout 重排** 與 **基於 mincore 的 targeted madvise prefetch**
-的兩層 cold-start 框架（系統正式命名待定）。在固定的 reference DB
-（**600k rows、102 MB**）上，我們依 SQLite B+tree 角色（interior /
-leaf）對 page 做精確分類，僅針對主導 cold-start cost 的 **0.35%（92
-個 interior page、共 368 KB）** 進行 prefetch，避免盲目 preload 帶來
-的 I/O 與 page reclaim 浪費，且整套設計無需修改 SQLite 內部。據我們
-所知，**我們的研究** 是第一個在 **empty OS page cache cold-start 場景下**
-（區別於 Yi et al. [2026] 處理的 hotspot-shift buffer cold-start），將
-prefetch preprocessing 開銷明確納入 end-to-end 評估的 SQLite prefetch
-研究：實驗顯示既有 cache-dump 策略雖能將
-first-query latency 從 baseline 的 **318 µs 壓降至 14 µs（−94%）**，
-但其 **1.8 ms 的 preprocessing 開銷** 反讓 end-to-end cold start
-**慢 3–7 倍**——這個 trade-off 在既有 prefetch 文獻中長期被忽略。最終
-**我們的研究** 在 Zipfian workload 上將 first-query latency 從 **318
-µs 降至 127 µs**、end-to-end cold start 達成 **−68%（preprocessing
-僅 1.1 µs，可忽略）**；於 file-tail uniform workload 上以 **僅 4 個
-syscall** 的 access-pattern prefetch 取得與盲載全部 92 個 interior 相
-當的 −47%；且在 **50k 寫入 churn**、**cgroup `MemoryMax=20M`**（約
-working set 的 1/5）記憶體壓縮、以及多 process MAP_SHARED 共享三條
-robustness 軸下皆保持穩定（63 個 cell 的 first-q 比值全落於 0.90–
-1.19）。
+**摘要**——隨著 SQLite 廣泛部署於行動裝置、IoT 與桌面應用，其 cold-start 讀取效能逐漸成為使用者體驗的關鍵瓶頸，並衍生出兩個尚未被同時解決的核心
+挑戰：**prefetch 目標選擇（targeting）** 與 **preprocessing 成本核算（cost-accounting）**。就 targeting 而言，作業系統與應用層皆缺乏對 SQLite B+tree 內部 page-type 結構的可見性，盲目 prefetch 會將 I/O 浪費在大量無關 page 上，無法精準命中真正主導 cold-start cost 的少數關鍵 page；就 cost-accounting 而言，既有 prefetch 策略多僅優化 first-query latency，未將 prefetch 本身的 preprocessing 開銷納入 end-to-end cold-start 真實成本評估，造成「first-query 改善幅度」與「真實 cold-start cost」之間的系統性誤導。SQLite 因其輕量嵌入式設計、零組態部署與廣泛 SQL 相容性，是此議題最具代表性的研究對象，然而現有 SQLite 相關文獻多聚焦於寫入路徑（fsync、WAL、journal mode），對 cold-start 讀取路徑的系統性分析較少；現有跨領域工作中，作業系統層的 readahead 僅依賴 sequential pattern detection、無法針對 page-type 做精準預判，DBMS 層的 buffer pool warming 又須侵入式修改 engine、且皆未將 preprocessing 計入真實成本。為彌補此 gap，我們提出一套結合 **page-type-aware 物理 layout 重排** 與 **基於 mincore 的 targeted madvise prefetch** 的兩層 cold-start 框架（系統正式命名待定）。在固定的 reference DB（**600k rows、102 MB**）上，我們依 SQLite B+tree 角色（interior/leaf）對 page 做精確分類，僅針對主導 cold-start cost 的 **0.35%（92個 interior page、共 368 KB）** 進行 prefetch，避免盲目 preload 帶來的 I/O 與 page reclaim 浪費，且整套設計無需修改 SQLite 內部。據我們所知，**我們的研究** 是第一個在 **empty OS page cache cold-start 場景下**（區別於 Yi et al. [2026] 處理的 hotspot-shift buffer cold-start），將 prefetch preprocessing 開銷明確納入 end-to-end 評估的 SQLite prefetch
+研究：實驗顯示既有 cache-dump 策略雖能將 first-query latency 從 baseline 的 **318 µs 壓降至 14 µs（−94%）**，但其 **1.8 ms 的 preprocessing 開銷** 反讓 end-to-end cold start **慢 3–7 倍**——這個 trade-off 在既有 prefetch 文獻中長期被忽略。最終 **我們的研究** 在 Zipfian workload 上將 first-query latency 從 **318 µs 降至 127 µs**、end-to-end cold start 達成 **−68%（preprocessing 僅 1.1 µs）** 於 file-tail uniform workload 上以 **僅 4 個 syscall** 的 access-pattern prefetch 取得與盲載全部 92 個 interior 相當的 −47%；且在 **50k 寫入 churn**、**cgroup `MemoryMax=20M`**（約 working set 的 1/5）記憶體壓縮、以及多 process MAP_SHARED 共享三條 robustness 軸下皆保持穩定（63 個 cell 的 first-q 比值全落於 0.90–1.19）。
 
 **Index Terms**——SQLite, Cold-start latency, Prefetch, Page-type aware
 
@@ -178,22 +144,39 @@ Linux kernel 的 readahead 機制（`mmap` MADV_WILLNEED / MADV_SEQUENTIAL、
 `posix_fadvise(POSIX_FADV_WILLNEED)`、kernel `do_page_cache_ra`）跟 SSD-aware
 I/O scheduling 的相關文獻。
 
+**歷史 lineage**：sequential prefetching 的概念可追溯至 [Smith 1978]，
+原始在 DB 層提出 **One Block Lookahead (OBL)**；Linux kernel readahead
+繼承這條概念主線但下放到 OS 層、操作對 DB-internal 結構不可見的 file
+offsets——也因此只能做 sequential pattern detection、無法 page-type aware。
+
 候選 reading：
 - Linux kernel mm `readahead.c` design notes
 - "Anticipatory I/O Scheduling" (USENIX ATC '04, Iyer & Druschel) ← 經典
 - "I/O Behavior of NAND Flash" 系列（NVMe readahead、SSD pre-read）
 
-**跟我們的差別**：OS readahead 是 **sequential pattern detection**；我們的
-策略是 **page-type aware**（知道 SQLite interior page 在哪），用 madvise
-做明確 hint 而不是依賴 kernel 自動推測。
+**跟我們的差別**：OS readahead 是 **sequential pattern detection**（Smith
+'78 lineage）；我們的策略是 **page-type aware**（知道 SQLite interior
+page 在哪），用 madvise 做明確 hint 而不是依賴 kernel 自動推測。
 
 #### 2.3.2 Database buffer pool warming
 
 Oracle/PostgreSQL/DB2 都有「warmup tool」把 hot pages 預先載進 buffer
-pool。學術界相關：
-- **"OLTP Bench" / "Aether" buffer pool warming** (?)
-- **OLTPBench tradeoff studies**
-- **"Smart Caching" / "ML-based prefetching"** (recent 2020+ work)
+pool；學術界這條 lineage 的兩個 foundational anchor 是：
+
+- **[Effelsberg & Härder 1984]** "Principles of database buffer management"
+  *ACM TODS* 9(4):560–595——DB buffer mgmt 的奠基論文，建立了 replacement /
+  prefetching / reference-count 等基本設計維度。**Pre-Buffer [Yi+26] 跟
+  Chen+21 都引這篇**。
+- **[Smith 1978]** "Sequentiality and prefetching in database systems"
+  *ACM TODS* 3(3):223–247——**OBL (One Block Lookahead) 的原始出處**；
+  也是 §2.3.1 提到的 sequential prefetching 概念主線的源頭。**Pre-Buffer**
+  在 Database Prefetching 段引此為 prefetch 開山之作；**Chen+21** 把
+  OBL 擴充為 K-page LookAhead 當作 ML 模型對照 baseline。
+
+近年 ML-based 路線（已在前段討論）：[Chen+21] / [Yang+20 Leaper, PVLDB
+13(12)] 用 NN 預測 page access；Pre-Buffer [Yi+26] 用 Jaccard similarity
+做 hotspot matching。所有這些工作都建立在上述 Smith '78 + Effelsberg '84
+的傳統上。
 
 **跟我們的差別**：buffer pool warming 用 DBMS 自有 cache；我們用 OS page
 cache + mmap、不修改 SQLite，把 prefetch 變成 application-side 工具。
@@ -732,6 +715,8 @@ preprocessing 1.8 ms 比 first-q 14 µs 大兩個數量級，**真實 cold start
 
 | # | Citation | 在本研究中的角色 |
 |---|---|---|
+| [Smith 1978] | Smith, A. J. "Sequentiality and prefetching in database systems." *ACM Transactions on Database Systems* 3(3):223–247 (1978) | §2.3.1 + §2.3.2 foundational ancestor——**OBL (One Block Lookahead) 的原始出處**，sequential prefetching 概念主線的源頭。Chen+21 把它擴充為 K-page LookAhead baseline；Linux readahead 繼承同一條 lineage |
+| [Effelsberg & Härder 1984] | Effelsberg, W., Härder, T. "Principles of database buffer management." *ACM Transactions on Database Systems* 9(4):560–595 (1984) | §2.3.2 foundational anchor——DB buffer management 奠基論文，建立 replacement / prefetching / ref-count 設計維度。Pre-Buffer 跟 Chen+21 都引這篇 |
 | [Yi+26] | Yi, J., Wang, X., Jin, P. "Workload-Aware Buffer Prefetching for Database Systems." *Data Science and Engineering* (2026). https://doi.org/10.1007/s41019-025-00342-6 | §2.3.2 對比——他們的 "buffer cold-start" = hotspot-shift recovery，背景 thread + Direct I/O；我們處理 OS page cache cold-start + critical-path preprocessing accounting |
 | [Chen+21] | Chen, Y., Zhang, Y., Wu, J., Wang, J., Xing, C. "Revisiting data prefetching for database systems with machine learning techniques." *ICDE* (2021), pp. 2165–2170. DOI: 10.1109/ICDE51399.2021.00218 | §2.3.2 引用——ML-based prefetcher（DNN/CNN/RNN/LSTM/Multi-Model，8–20M 參數）。**訓練 trace 採 warm-start**，evaluation 只報 precision/recall，未量測 NN inference 對 latency 的衝擊、也未量測 wasted-prefetch I/O 成本——雖其 §IV-B 自承「wrong prefetching... will hurt the performance of the system due to the extra I/O cost」。Pre-Buffer 的批評因此公允；本研究的 preprocessing-aware methodology 正是 fill 這個 gap |
 | 其他 papers / blog posts | §2.3 candidate reading list | survey 進度見 `related_work_reading_list.md`（待建立）|
