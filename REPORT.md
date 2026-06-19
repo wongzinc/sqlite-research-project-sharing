@@ -93,7 +93,7 @@ conclusion；§9 references。
 
 ## 2. Background and Related Work
 
-### 2.1 SQLite B+tree storage 與 cold-start mechanics
+### 2.1 SQLite B+tree storage and cold-start mechanics
 
 SQLite 的整體架構（SQL compiler / VDBE / B-tree / pager / OS interface）
 與儲存格式詳見其官方文件與 [Gaffney+22] 提供的最新完整評估——後者由 SQLite
@@ -101,25 +101,23 @@ SQLite 的整體架構（SQL compiler / VDBE / B-tree / pager / OS interface）
 是目前學術界對 SQLite 最 authoritative 的描述。本節僅萃取與 cold-start
 read 路徑相關的細節。
 
-SQLite 把每個 logical table 跟 index 存成一棵 B+tree、用 4 KB page 為基本單位
-循環儲存在 single file 裡。Page 分四種：
+SQLite 以單一 file 存放整個資料庫、內部以 **4 KB page** 為基本單位，每個
+logical table 或 index 對應一棵 B+tree。Page 依角色分為兩大類：**interior
+page**（B+tree 內部節點，儲存 key 與 child pointer，再細分 `interior_table`
+與 `interior_index`）與 **leaf page**（實際資料 row 或 index entry）。本
+研究使用的 reference database 含 600,000 row，產生 **92 個 interior page**
+（51 個 table interior + 41 個 index interior，占整 file 大小 0.35% /
+368 KB）與 26,239 個 leaf page。
 
-- `interior_table` / `interior_index`：B+tree 的內部節點，存 key + child pointer
-- `leaf_table` / `leaf_index`：實際資料
-
-對 600k row 的 reference DB（schema 詳見 §3.1）：interior page 只有 92 個
-（51 table + 41 index）、占整 file 的 **0.35%**；leaf page 26,239 個、占
-**99.65%**。
-
-每筆 query (例：`SELECT payload FROM items WHERE id=?`) 都得從 B+tree root
-（pageno 1）逐層往下走到 leaf。**走完整條 path 要的 interior page 全部都得
-在 memory**——任何一個不在，就要去 disk fetch，每次 ~5-100 µs 的 random
-read 延遲。
-
-**Cold start = OS page cache 是空的狀態下做第一筆 query**。這時 SQLite 走
-B+tree path 會 trigger 多次 major page fault（majflt），每次都是真的 disk
-read。Reference DB 上一筆 cold start query 通常需要 ~300-700 µs（取決於
-workload 跟 layout），比 warm 狀態下的 ~1.5 µs 慢 200-450 倍。
+執行任一 query（如 `SELECT payload FROM items WHERE id=?`）時，SQLite 從
+B+tree root 逐層下行至 leaf；走完整條 path 上的所有 interior page **必須
+駐於 memory**，任一缺席即觸發一次磁碟 random read（典型延遲 5–100 µs per
+fault）。需注意 SQLite 的 **`page 1` 為 DB header 與 `sqlite_master`
+（schema）的 b-tree root**——使用者表的 B+tree root 落在 `sqlite_master.rootpage`
+記載的某個低頁號、不必為 1。本研究定義的 **cold-start** 即「OS page cache
+為空時的第一筆 query」（量測協定詳見 §2.2）；此時走 B+tree path 必觸發多次
+major page fault，相較 warm 狀態高出**兩個數量級以上**的 first-query latency
+（具體量化見 §5）。
 
 ### 2.2 Cold-start 模型：「warm process, cold data」（pragmatic choice）
 
