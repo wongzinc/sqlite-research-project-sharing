@@ -6,6 +6,40 @@
 
 ---
 
+## 0. P0 Cold-Start Pipeline（**所有實驗都必須遵循**）
+
+> 這是 2026-06-19 起的 gold-standard 規範。本檔列出的 command、§3 範例、
+> 以及未來新加的任何 workload / strategy **全部都必須跑在 P0 pipeline 下**。
+> 偏離者請在 PR 描述明示理由。設計依據與歷史 pipeline 對照見
+> [IMPLEMENTATION_PIPELINES.md](IMPLEMENTATION_PIPELINES.md)。
+
+### P0 = 四個強制層級
+
+| 層 | 機制 | 目的 |
+|---|---|---|
+| ① harness MADV chain | `--cold-advice dontneed`（= `MADV_COLD → MADV_PAGEOUT → MADV_DONTNEED`）| 對自家 mmap 區域強制 kernel 回收 |
+| ② 全機 drop_caches | `--drop-caches-script /usr/local/sbin/drop-caches` | 全機 page cache + dentries + inodes 一律清空（setuid wrapper、u03 可跑、不需 sudo）|
+| ③ Prefetch hint | `--post-cold-script <strategy_prefetch.sh>` | 策略本身的 prefetch（這是「策略」差異所在）|
+| ④ Residency verify | 跑完後 `residency_checker --threshold 0` | 強制驗證 cache 真的清空了；不為 0 abort 該 cell |
+
+### 為什麼必須 P0
+
+過去 codebase 同時跑 4 條不同 pipeline（per-file fadvise / system drop_caches /
+跳過 MADV chain / 關掉 residency verify）——這是
+[CONTRADICTIONS.md](../CONTRADICTIONS.md) #24 與 #1/6/7/9 一票數據打架的根因。
+P0 統一機制後，**同一個 batch 內**的數字才有跨表可比性。
+
+### 注意：禮貌（強制）
+
+`/usr/local/sbin/drop-caches` **會沖掉工作站上所有同學的 page cache**。
+跑 master batch（>100 cell）請：
+
+- 集中夜間時段
+- 跑前 group chat 公告（含預估 wallclock）
+- 不要在 interactive dev / 探索時 loop 呼叫
+
+---
+
 ## 1. 共用 infrastructure（所有 workload 都會用）
 
 這些檔案**跟 workload 無關**，建立一次就所有人用：
@@ -34,23 +68,36 @@
 
 `prefetch_access/runs/classify_*.csv` 也是 symlink。
 
-### 1.3 三個 evict script（per-layout cold-start drop）
+### 1.3 三個 cold script（per-layout cold-start drop）
+
+**2026-06-19 起全部走 P0 §0**：所有 cold script 統一 `exec /usr/local/sbin/drop-caches`
+（全機 page cache + dentries + inodes 一刀清）。layout 不再決定 evict 機制——
+這三個檔留著只是為了 orchestrator 向後相容（各自的路徑不變）。
 
 | Layout | File | 做什麼 |
 |---|---|---|
-| 1a | `layout_rewriter/runs/cold_orig.sh` | `evict test.db` |
-| 1b | `layout_rewriter/runs/cold_vacuum.sh` | `evict test_vacuum.db` |
-| 1c | `layout_rewriter/runs/cold_ta.sh` | `evict test_typeaware.db` |
+| 1a | `layout_rewriter/runs/cold_orig.sh` | `exec /usr/local/sbin/drop-caches` |
+| 1b | `layout_rewriter/runs/cold_vacuum.sh` | `exec /usr/local/sbin/drop-caches` |
+| 1c | `layout_rewriter/runs/cold_ta.sh` | `exec /usr/local/sbin/drop-caches` |
 
-`evict` 是 [`layout_rewriter/runs/evict.c`](layout_rewriter/runs/evict.c) 編出來的小工具——對 mmap 過的檔發 `posix_fadvise(POSIX_FADV_DONTNEED)`、不需要 sudo。
+> **歷史**：2026-06-19 之前這三個檔呼叫 `evict` binary（per-file
+> `posix_fadvise(POSIX_FADV_DONTNEED)`）。`evict.c` 跟編出的 binary 仍在 repo
+> 內以備需要 single-file evict 場景，但**不再是 production cold-start 機制**。
 
-### 1.4 三個 prefetch tool（C binary）
+### 1.4 四個 prefetch tool（C binary）
 
-| Tool | Source | 用在哪些策略 |
-|---|---|---|
-| `prefetch_layers` | [`prefetch_vacuum/src/prefetch_layers.c`](prefetch_vacuum/src/prefetch_layers.c) | **2a/2b/2c**（structure-based）|
-| `prefetch_access` | [`prefetch_access/src/prefetch_access.c`](prefetch_access/src/prefetch_access.c) | **2d/2e**（history + page-type aware）+ **3a/3b** ratio variant |
-| `prefetch_slru` | [`prefetch_slru/src/prefetch_slru.c`](prefetch_slru/src/prefetch_slru.c) | **2f SLRU** |
+| Tool | Source | 用在哪些策略 | Args 簽章 |
+|---|---|---|---|
+| `prefetch` | [`prefetch_vacuum/src/prefetch.c`](prefetch_vacuum/src/prefetch.c) | **2a range / 2b perpage**（structure-based）| `<db> <classify.csv> {range\|perpage}` |
+| `prefetch_layers` | [`prefetch_vacuum/src/prefetch_layers.c`](prefetch_vacuum/src/prefetch_layers.c) | **2c layers_N**（structure-based）| `<db> <classify.csv> <N> <page_size>` |
+| `prefetch_access` | [`prefetch_access/src/prefetch_access.c`](prefetch_access/src/prefetch_access.c) | **2d/2e**（history + page-type aware）+ **3a/3b** ratio variant | `<db> <classify.csv> <hotpages.csv> <cap_interior> <cap_leaf> <page_size>` |
+| `prefetch_slru` | [`prefetch_slru/src/prefetch_slru.c`](prefetch_slru/src/prefetch_slru.c) | **2f SLRU** | `<db> <hotpages.csv> <page_size>` |
+
+> **歷史錯誤更正（2026-06-19）**：本表之前把 2a/2b 也歸到 `prefetch_layers`
+> 名下、並寫成「`prefetch_layers <db> <classify> 92 4096 range`」5-arg 簽章
+> ——這是錯誤的。`prefetch_layers` 只吃 4 個 arg、且不接 `range`/`perpage`
+> 子命令。2a/2b 用的是另一個 binary `prefetch`。對應到
+> [CONTRADICTIONS.md](../CONTRADICTIONS.md) #26 已更正。
 
 ### 1.5 Benchmark harness + workload generator
 
@@ -123,7 +170,7 @@ D **不需要 hotpages**——它只負責寫入製造 churn，不會被 cold-st
 
 ---
 
-## 3. 一格 benchmark 的精確 command
+## 3. 一格 benchmark 的精確 command（**P0 pipeline 版本**）
 
 無論哪種策略，都長這樣（只差 `--post-cold-script` 換哪支 prefetch script）：
 
@@ -133,25 +180,35 @@ benchmark_harness/benchmark_harness \
   --workload  <某個 workload .txt 路徑> \
   --output    <ops CSV 輸出路徑> \
   --record-dir <log 目錄> \
-  --cold-advice dontneed \
-  --drop-caches-script layout_rewriter/runs/cold_orig.sh \
-  --post-cold-script   <某支 prefetch script>
+  --cold-advice dontneed \                                # P0 ①
+  --drop-caches-script /usr/local/sbin/drop-caches \      # P0 ②（**取代 cold_*.sh**）
+  --post-cold-script   <某支 prefetch script>             # P0 ③
+
+# 跑完後（P0 ④）：
+residency_checker --db <db> --threshold 0 || exit 1       # 不為 0 abort cell
 ```
 
-`--post-cold-script` 是「換策略」的開關。每支 prefetch script 就是 `exec` 對應的 prefetch tool 帶不同參數。例：
+> 也可繼續傳 `--drop-caches-script layout_rewriter/runs/cold_orig.sh`——這些
+> `cold_*.sh` 內部已經改成 `exec /usr/local/sbin/drop-caches`，跑出來效果
+> 一致。但建議**直接傳 wrapper 路徑**，少一層 indirection。
 
-| 策略 | post-cold-script 內容 |
-|---|---|
-| 2a range | `exec prefetch_layers <db> <classify> 92 4096 range` |
-| 2b perpage | `exec prefetch_layers <db> <classify> 92 4096 perpage` |
-| 2c layers_5 | `exec prefetch_layers <db> <classify> 5 4096` |
-| 2c layers_N | `exec prefetch_layers <db> <classify> N 4096` |
-| 2d | `exec prefetch_access <db> <classify> <hotpages> 0 0 4096` |
-| 2e_K10 | `exec prefetch_access <db> <classify> <hot2e_K10> 0 10 4096` |
-| 2e_K500 | `exec prefetch_access <db> <classify> <hot2e_K500> 0 500 4096` |
-| 2f SLRU | `exec prefetch_slru <db> <hotpages> 4096` |
+`--post-cold-script` 是「換策略」的開關。每支 prefetch script 就是 `exec`
+對應的 prefetch tool 帶不同參數。**所有簽章與 §1.4 一致**：
 
-詳細的 timeline + 每支 prefetch script 模板見 [`strategies_explained.md`](strategies_explained.md)（如果存在）或 [`benchmark_harness/BENCHMARK_HARNESS.md`](benchmark_harness/BENCHMARK_HARNESS.md)。
+| 策略 | post-cold-script 內容 | Tool |
+|---|---|---|
+| 2a range | `exec prefetch <db> <classify> range` | `prefetch` |
+| 2b perpage | `exec prefetch <db> <classify> perpage` | `prefetch` |
+| 2c layers_5 | `exec prefetch_layers <db> <classify> 5 4096` | `prefetch_layers` |
+| 2c layers_N | `exec prefetch_layers <db> <classify> N 4096` | `prefetch_layers` |
+| 2d | `exec prefetch_access <db> <classify> <hotpages> 0 0 4096` | `prefetch_access` |
+| 2e_K10 | `exec prefetch_access <db> <classify> <hot2e_K10> 0 10 4096` | `prefetch_access` |
+| 2e_K500 | `exec prefetch_access <db> <classify> <hot2e_K500> 0 500 4096` | `prefetch_access` |
+| 2f SLRU | `exec prefetch_slru <db> <hotpages> 4096` | `prefetch_slru` |
+
+詳細的 timeline + 每支 prefetch script 模板見
+[`strategies_explained.md`](strategies_explained.md) 或
+[`benchmark_harness/BENCHMARK_HARNESS.md`](benchmark_harness/BENCHMARK_HARNESS.md)。
 
 ---
 

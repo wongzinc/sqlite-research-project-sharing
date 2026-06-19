@@ -16,7 +16,7 @@ run_one() {
   local evict_script="$outdir/evict.sh"
   cat > "$evict_script" <<EOF
 #!/bin/sh
-exec $RUNS/evict $outdir/test_churn.db >&2
+exec /usr/local/sbin/drop-caches
 EOF
   chmod +x "$evict_script"
 
@@ -40,7 +40,6 @@ EOF
     --benchmark-workload generated_workloads/page_churn_benchmark_high.txt \
     --write-workload generated_workloads/page_churn_write.txt \
     --drop-caches-script "$evict_script" \
-    --no-drop-caches-use-sudo \
     --prefetch-mode "$mode" $pages_arg \
     --prefetch-tool ./prefetch_layers \
     --benchmark-cold-advice none \

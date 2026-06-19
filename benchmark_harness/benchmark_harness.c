@@ -78,7 +78,6 @@ typedef struct {
     int64_t mmap_size;
     const char *drop_caches_script;
     const char *post_cold_script;
-    bool drop_caches_use_sudo;
     cold_advice_t cold_advice;
     sqlite_open_timing_t sqlite_open_timing;
     schema_init_timing_t schema_init_timing;
@@ -135,8 +134,8 @@ static void usage(const char *prog) {
             "  --record-dir <dir>              Run record directory (default: benchmark_harness_runs).\n"
             "  --workload <file>               Pre-generated workload text file.\n"
             "  --mmap-size <bytes>             PRAGMA mmap_size target (default: file size).\n"
-            "  --drop-caches-script <file>     Run root-only helper after madvise to drop Linux page cache.\n"
-            "  --drop-caches-use-sudo          Run drop-cache helper via sudo -n.\n"
+            "  --drop-caches-script <file>     Run helper after madvise to drop Linux page cache.\n"
+            "                                  Recommended: /usr/local/sbin/drop-caches (setuid wrapper).\n"
             "  --post-cold-script <file>       Run helper after cold/drop-caches and before SQLite query setup.\n"
             "  --cold-advice none              Do not run madvise/drop-caches; measure current cache state.\n"
             "  --cold-advice cold              Use MADV_COLD only.\n"
@@ -198,8 +197,6 @@ static void parse_args(int argc, char **argv, options_t *opts) {
             opts->mmap_size = parse_i64(argv[++i], "--mmap-size");
         } else if (strcmp(arg, "--drop-caches-script") == 0 && i + 1 < argc) {
             opts->drop_caches_script = argv[++i];
-        } else if (strcmp(arg, "--drop-caches-use-sudo") == 0) {
-            opts->drop_caches_use_sudo = true;
         } else if (strcmp(arg, "--post-cold-script") == 0 && i + 1 < argc) {
             opts->post_cold_script = argv[++i];
         } else if (strcmp(arg, "--cold-advice") == 0 && i + 1 < argc) {
@@ -754,7 +751,7 @@ static void apply_cold_advice(const mapped_db_t *dbmap, cold_advice_t advice,
 }
 
 static void run_helper_script(const char *script_path, const char *kind,
-                              bool use_sudo, bool debug, FILE *record) {
+                              bool debug, FILE *record) {
     pid_t pid;
     int status;
 
@@ -765,13 +762,9 @@ static void run_helper_script(const char *script_path, const char *kind,
         fprintf(stderr, "error: --%s path must not be empty\n", kind);
         exit(1);
     }
-    if (use_sudo && geteuid() == 0) {
-        use_sudo = false;
-    }
 
     if (debug) {
-        fprintf(stderr, "running %s helper%s: %s\n", kind,
-                use_sudo ? " via sudo -n" : "", script_path);
+        fprintf(stderr, "running %s helper: %s\n", kind, script_path);
     }
 
     pid = fork();
@@ -780,22 +773,10 @@ static void run_helper_script(const char *script_path, const char *kind,
     }
 
     if (pid == 0) {
-        if (use_sudo) {
-            char *const argv[] = {
-                (char *)"sudo",
-                (char *)"-n",
-                (char *)script_path,
-                NULL,
-            };
-            execvp("sudo", argv);
-            fprintf(stderr, "error: execvp(sudo -n %s) failed: errno=%d (%s)\n",
-                    script_path, errno, strerror(errno));
-        } else {
-            char *const argv[] = {(char *)script_path, NULL};
-            execv(script_path, argv);
-            fprintf(stderr, "error: execv(%s) failed: errno=%d (%s)\n",
-                    script_path, errno, strerror(errno));
-        }
+        char *const argv[] = {(char *)script_path, NULL};
+        execv(script_path, argv);
+        fprintf(stderr, "error: execv(%s) failed: errno=%d (%s)\n",
+                script_path, errno, strerror(errno));
         _exit(127);
     }
 
@@ -807,26 +788,24 @@ static void run_helper_script(const char *script_path, const char *kind,
         int code = WEXITSTATUS(status);
         if (code != 0) {
             fprintf(stderr,
-                    "error: %s helper failed%s with exit code %d: %s\n",
-                    kind, use_sudo ? " via sudo -n" : "", code, script_path);
+                    "error: %s helper failed with exit code %d: %s\n",
+                    kind, code, script_path);
             exit(1);
         }
     } else if (WIFSIGNALED(status)) {
         fprintf(stderr,
-                "error: %s helper%s was killed by signal %d: %s\n",
-                kind, use_sudo ? " via sudo -n" : "", WTERMSIG(status),
-                script_path);
+                "error: %s helper was killed by signal %d: %s\n",
+                kind, WTERMSIG(status), script_path);
         exit(1);
     } else {
-        fprintf(stderr, "error: %s helper%s ended unexpectedly: %s\n",
-                kind, use_sudo ? " via sudo -n" : "", script_path);
+        fprintf(stderr, "error: %s helper ended unexpectedly: %s\n",
+                kind, script_path);
         exit(1);
     }
 
     write_record_line(record, "%s_result=success\n", kind);
     if (debug) {
-        fprintf(stderr, "%s helper%s succeeded: %s\n", kind,
-                use_sudo ? " via sudo -n" : "", script_path);
+        fprintf(stderr, "%s helper succeeded: %s\n", kind, script_path);
     }
 }
 
@@ -1226,8 +1205,6 @@ int main(int argc, char **argv) {
     write_record_line(record, "drop_caches_script=%s\n",
                       opts.drop_caches_script != NULL ?
                       opts.drop_caches_script : "(none)");
-    write_record_line(record, "drop_caches_use_sudo=%s\n",
-                      opts.drop_caches_use_sudo ? "true" : "false");
     write_record_line(record, "post_cold_script=%s\n",
                       opts.post_cold_script != NULL ?
                       opts.post_cold_script : "(none)");
@@ -1266,9 +1243,9 @@ int main(int argc, char **argv) {
     sync_db_pages(&dbmap, opts.debug);
     apply_cold_advice(&dbmap, opts.cold_advice, opts.debug);
     run_helper_script(opts.drop_caches_script, "drop_caches_script",
-                      opts.drop_caches_use_sudo, opts.debug, record);
+                      opts.debug, record);
     run_helper_script(opts.post_cold_script, "post_cold_script",
-                      false, opts.debug, record);
+                      opts.debug, record);
 
     if (opts.sqlite_open_timing == SQLITE_OPEN_AFTER_COLD) {
         sqlite_close_ctx(&sqlite_ctx);

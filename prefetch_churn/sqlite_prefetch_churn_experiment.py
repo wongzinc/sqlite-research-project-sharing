@@ -460,8 +460,6 @@ def run_benchmark_round(
     ]
     if args.drop_caches_script:
         command.extend(["--drop-caches-script", executable_path(Path(args.drop_caches_script))])
-        if args.drop_caches_use_sudo and not (hasattr(os, "geteuid") and os.geteuid() == 0):
-            command.append("--drop-caches-use-sudo")
     if post_cold_script is not None:
         command.extend(["--post-cold-script", str(post_cold_script.resolve())])
     if args.benchmark_debug:
@@ -1257,14 +1255,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--drop-caches-script",
-        default="./drop_caches.sh",
-        help="root-only helper run by benchmark_harness to sync and drop Linux page cache; empty disables it",
-    )
-    parser.add_argument(
-        "--drop-caches-use-sudo",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="invoke drop-caches script via sudo -n when not running as root (disable with --no-drop-caches-use-sudo for unprivileged posix_fadvise scripts)",
+        default="/usr/local/sbin/drop-caches",
+        help="helper run by benchmark_harness to drop the OS page cache; default is the system-wide setuid wrapper (P0 pipeline). Empty disables it.",
     )
     parser.add_argument(
         "--prefetch-mode",

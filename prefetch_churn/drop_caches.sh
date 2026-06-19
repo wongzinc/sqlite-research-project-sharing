@@ -1,10 +1,6 @@
 #!/bin/sh
-set -eu
-
-if [ "$(id -u)" -ne 0 ]; then
-    echo "error: drop_caches.sh must be run as root" >&2
-    exit 1
-fi
-
-sync
-printf '3\n' > /proc/sys/vm/drop_caches
+# Drop the OS page cache via /usr/local/sbin/drop-caches setuid wrapper.
+# Replaces previous per-file posix_fadvise (evict binary) — gold-standard
+# P0 cold-start mechanism per IMPLEMENTATION_PIPELINES.md.
+# WARNING: this drops ALL users page cache on the workstation. Coordinate.
+exec /usr/local/sbin/drop-caches

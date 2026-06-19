@@ -1,3 +1,6 @@
 #!/bin/sh
-# coldhelper.sh <db>... — evict each DB from page cache via posix_fadvise.
-/home/u03/sqlite-research-project-sharing/layout_rewriter/runs/evict "$@" >&2
+# Drop the OS page cache via /usr/local/sbin/drop-caches setuid wrapper.
+# Replaces previous per-file posix_fadvise (evict binary) — gold-standard
+# P0 cold-start mechanism per IMPLEMENTATION_PIPELINES.md.
+# WARNING: this drops ALL users page cache on the workstation. Coordinate.
+exec /usr/local/sbin/drop-caches
