@@ -209,8 +209,22 @@ preprocessing 開銷無法藏在 background。值得注意的是，Yi et al. 在
 ML-based prefetcher [Chen et al. 2021] 時明確指出："*it is also necessary
 to consider the direct and indirect impact of the prefetch module on
 system performance*" ——但其 evaluation（hit-rate recovery time + 總
-execution time）並未將 prefetch overhead 與 query latency 分離。本研究
-的 preprocessing-aware end-to-end methodology 正是回應這個 open gap。
+execution time）並未將 prefetch overhead 與 query latency 分離。
+
+**Chen+21 原文驗證**：細讀 [Chen et al. 2021] 證實 Pre-Buffer 的批評公允——他們
+在 MySQL 上跑 TPC-H/DS/SSB benchmark 收集 page access trace 訓練 DNN/CNN/RNN/
+LSTM/Multi-Model ensemble（8–20M 參數）預測下一個 page offset，但 (1) 訓練資
+料明確採用 **"with warm-start"** trace（已避開 cold-start 場景）、(2) evaluation
+只報 next-page prediction 的 **precision/recall**（Multi-Model 76–87% vs
+LookAhead 20%），從未量測 NN inference 對 query latency 的衝擊、也沒量測錯誤
+prefetch 的 wasted I/O 成本——即便他們自己在 §IV-B 親口寫："*wrong prefetching,
+though asynchronous, will hurt the performance of the system due to the
+extra I/O cost.*"並為此設計了 Decision Module。Chen+21 的 gap 是 **cost-awareness
+在 design 但缺席 evaluation**；Pre-Buffer 的 gap 是 **evaluation 採用 system-level
+混合指標、未分離 prefetch overhead 與 query latency**。本研究的 preprocessing-aware
+end-to-end methodology 同時 close 這兩個 gap：在 SQLite cold-start 場景下把
+prefetch preprocessing 與 first-query latency **顯式分開測量**、再 **sum 為
+end-to-end cold-start 真實成本**。
 
 #### 2.3.3 SQLite / mobile / embedded DB optimization
 
@@ -719,7 +733,7 @@ preprocessing 1.8 ms 比 first-q 14 µs 大兩個數量級，**真實 cold start
 | # | Citation | 在本研究中的角色 |
 |---|---|---|
 | [Yi+26] | Yi, J., Wang, X., Jin, P. "Workload-Aware Buffer Prefetching for Database Systems." *Data Science and Engineering* (2026). https://doi.org/10.1007/s41019-025-00342-6 | §2.3.2 對比——他們的 "buffer cold-start" = hotspot-shift recovery，背景 thread + Direct I/O；我們處理 OS page cache cold-start + critical-path preprocessing accounting |
-| [Chen+21] | Chen, Y., Zhang, Y., Wu, J., Wang, J., Xing, C. "Revisiting data prefetching for database systems with machine learning techniques." *ICDE* (2021), pp. 2165–2170 | §2.3.2 引用——ML-based prefetcher，Pre-Buffer 點名批評其「未量化 prefetch module 對 system performance 的 direct/indirect impact」，正是本研究 fill 的 gap |
+| [Chen+21] | Chen, Y., Zhang, Y., Wu, J., Wang, J., Xing, C. "Revisiting data prefetching for database systems with machine learning techniques." *ICDE* (2021), pp. 2165–2170. DOI: 10.1109/ICDE51399.2021.00218 | §2.3.2 引用——ML-based prefetcher（DNN/CNN/RNN/LSTM/Multi-Model，8–20M 參數）。**訓練 trace 採 warm-start**，evaluation 只報 precision/recall，未量測 NN inference 對 latency 的衝擊、也未量測 wasted-prefetch I/O 成本——雖其 §IV-B 自承「wrong prefetching... will hurt the performance of the system due to the extra I/O cost」。Pre-Buffer 的批評因此公允；本研究的 preprocessing-aware methodology 正是 fill 這個 gap |
 | 其他 papers / blog posts | §2.3 candidate reading list | survey 進度見 `related_work_reading_list.md`（待建立）|
 
 ---
