@@ -119,41 +119,42 @@ fault）。需注意 SQLite 的 **`page 1` 為 DB header 與 `sqlite_master`
 major page fault，相較 warm 狀態高出**兩個數量級以上**的 first-query latency
 （具體量化見 §5）。
 
-### 2.2 Cold-start 模型：「warm process, cold data」（pragmatic choice）
+### 2.2 Cold-start measurement protocol
 
-嚴格 textbook 的 cold start 是「機器剛開機、process 從來沒跑過、所有 cache
-都空」，但這在 benchmark 環境**做不到**（要每筆量都 reboot），所以我們選了
-一個務實的版本：
+嚴格 textbook 的 cold-start 要求機器剛開機、process 從未存在、所有軟體層
+cache 皆空——這在 benchmark 環境每 cell 重現是不可行的。本研究改採
+**「warm process, cold data」protocol**：process 層級的 long-lived 結構
+保持 warm，但 process 以下的每一層 software cache 在每次量測前都歸零。
 
-| 層 | 我們的狀態 | 嚴格 cold 要求 |
+具體而言，每個 measurement cell 量測前的狀態如下表：
+
+| 層級 | 量測時狀態 | 對照嚴格 cold-start |
 |---|---|---|
-| **OS page cache（DB 內容）** | ✅ **每筆量前用 `posix_fadvise(DONTNEED)` 清掉** | 完全空 ✓ |
-| **磁碟 I/O** | ✅ majflt > 0 證實確實到 disk | 必須 physical I/O ✓ |
-| **SQLite handle / pager** | ⚠️ **預先開好**（PRAGMA cache_size=0、statement 已 prepare）| 從未 open |
-| **mmap()** | ⚠️ **預先建立**（mapping 在、但 page 還沒 fault 進來）| 從未呼叫 |
-| **CPU 指令 cache / TLB / branch predictor** | ⚠️ **已 warm**（harness 程式碼之前跑過很多次）| 全部冷 |
+| **OS page cache (DB 內容)** | ✅ 透過 `/usr/local/sbin/drop-caches` setuid wrapper 全機 drop (`sync; echo 3 > /proc/sys/vm/drop_caches`)，並以 `mincore`-based `residency_checker` 驗證 0% resident | 完全空 ✓ |
+| **磁碟 I/O** | ✅ `majflt > 0` 驗證確實到 disk | 必須 physical I/O ✓ |
+| **SQLite handle / pager** | ⚠️ 預先開好（`PRAGMA cache_size=0`、statement 已 prepare） | 從未 open |
+| **`mmap()` 區域** | ⚠️ 預先建立（mapping 在、page 未 fault） | 從未呼叫 |
+| **CPU 指令 cache / TLB / branch predictor** | ⚠️ Warm（harness 程式碼跑過多輪） | 全部冷 |
 
-**為什麼這樣選**（design rationale）：
+「warm process」的三項刻意妥協服務三個目的：(1) **更貼近實際部署**——
+mobile app / server worker 的 SQLite 多半已 load、schema 已 introspect，
+使用者感知的 cold-start 是 data cold 不是 process cold；(2) **隔離研究
+變數**——SQLite parser/optimizer 啟動時間是相對 prefetch 機制獨立的常數，
+混入只會增加 noise；(3) **可重複性**——「process from scratch」會多出
+~50–200 µs 的 SQLite 初始化 noise，需要更多 reps 才壓得住。
 
-- **跟真實情境更接近**：手機 app / server worker 大多時候是「process 已
-  running、SQLite 已 load、schema 已 introspect」，使用者按下去那筆 query
-  才是 cold data。比「process 從來沒存在過」更接近實際 cold-start 情境。
-- **隔離我們關心的變數**：要量「prefetch 對 page fault 路徑的影響」。SQLite
-  parser/optimizer 的啟動時間是常數，混進去只會增加 noise、不會 reveal
-  任何 prefetch 機制相關的東西。
-- **可重複性高**：「process from scratch」會多出 50-200 µs 的 SQLite 初始化
-  noise，需要更多 reps 才壓得住。
+Warm CPU caches 帶來的下偏小（first-q 估 1–3 µs，相較典型 cold-start
+baseline < 1%）。Harness 可選擇更嚴格的模式（`--sqlite-open-timing=after-cold`、
+`--schema-init-timing=after-cold`）；本文全部 report 預設模式以利 cross-cell
+比較，**P0 跟 strict 模式 between-mode delta 的量化列於 §6.4 limitations**。
 
-**這個選擇對結果的影響**：
-
-- 對 first_query 數字大約**少算 1-3 µs**（CPU cache / TLB 之類熱了一點點）
-- 對 baseline ~500 µs 來說 < 1%，可忽略
-- 對 first-q 只剩 14 µs 的 2f SLRU 約 ~10%，但**不改變結論**（2f 的
-  preprocessing 1.8 ms 仍然 dominate）
-
-> Harness 已支援更嚴格的模式：`--sqlite-open-timing=after-cold` +
-> `--schema-init-timing=after-cold`，但本報告**全部使用預設的 "warm process,
-> cold data"** 模式，所有數字一致可比。
+> **2026-06-19 P0 pipeline 統一**：上表 OS page cache 那層的機制（全機
+> `drop-caches` wrapper + residency_checker verify）即為
+> [IMPLEMENTATION_PIPELINES.md](IMPLEMENTATION_PIPELINES.md) §3 描述的 P0
+> pipeline。本 paper 所有 §5 / §6 數據均依此 protocol 量測；歷史上使用
+> per-file `posix_fadvise` / `sudo drop_caches` 量出的數字將由 P0 master
+> rerun 取代（時程詳見 [CONTRADICTIONS.md](CONTRADICTIONS.md) /
+> [IMPLEMENTATION_PIPELINES.md](IMPLEMENTATION_PIPELINES.md)）。
 
 ### 2.3 Related Work
 
