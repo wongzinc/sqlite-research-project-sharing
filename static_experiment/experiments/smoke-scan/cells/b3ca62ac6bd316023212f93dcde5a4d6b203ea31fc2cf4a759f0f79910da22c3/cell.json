@@ -1,0 +1,87 @@
+{
+  "artifacts": {
+    "operations_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/b3ca62ac6bd316023212f93dcde5a4d6b203ea31fc2cf4a759f0f79910da22c3/operations.csv",
+    "prefetch_result_json": null,
+    "run_record": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/b3ca62ac6bd316023212f93dcde5a4d6b203ea31fc2cf4a759f0f79910da22c3/record/run-20260622-152521-4169194.log",
+    "stderr": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/logs/b3ca62ac6bd316023212f93dcde5a4d6b203ea31fc2cf4a759f0f79910da22c3.err",
+    "stdout": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/logs/b3ca62ac6bd316023212f93dcde5a4d6b203ea31fc2cf4a759f0f79910da22c3.out"
+  },
+  "backend": null,
+  "cell_id": "b3ca62ac6bd316023212f93dcde5a4d6b203ea31fc2cf4a759f0f79910da22c3",
+  "database_sha256": "35cf0dd25d71ec74e724d2065184c97f8019ad4505a26414bbd7351adc054ca3",
+  "error": null,
+  "experiment_id": "smoke-scan",
+  "harness_metrics": {
+    "after_cold_ranges": [
+      [
+        1,
+        16
+      ]
+    ],
+    "average_latency_us": 49.26,
+    "first_query_latency_us": 428.81,
+    "major_page_faults": 274,
+    "minor_page_faults": 102,
+    "operations_path": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/b3ca62ac6bd316023212f93dcde5a4d6b203ea31fc2cf4a759f0f79910da22c3/operations.csv",
+    "ops": 1000,
+    "resident_after_cold_pages": 16
+  },
+  "layout": "original",
+  "measurement_file": {
+    "name": "scan_zipf_full_046.txt",
+    "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/scan_zipf_full_046.txt",
+    "sha256": "81bf9b29ca448f3d4650d2e6a8b720bc093b0a48436bc1b4ad2e2763cbcf7326"
+  },
+  "memory_condition": {
+    "enabled": false,
+    "memory_max_bytes": null,
+    "name": "unlimited"
+  },
+  "prefetch_result": null,
+  "raw_result": {
+    "average_latency_us": 49.26,
+    "backend": null,
+    "cell_id": "b3ca62ac6bd316023212f93dcde5a4d6b203ea31fc2cf4a759f0f79910da22c3",
+    "experiment_id": "smoke-scan",
+    "first_query_latency_us": 428.81,
+    "interior_k": "",
+    "layout": "original",
+    "leaf_k": "",
+    "major_page_faults": 274,
+    "measurement_file": "scan_zipf_full_046.txt",
+    "memory_condition": "unlimited",
+    "memory_limit_enabled": false,
+    "memory_max_bytes": "",
+    "minor_page_faults": 102,
+    "n": "",
+    "prefetch_elapsed_us": "",
+    "repetition": 1,
+    "requested_selected_resident_ratio": "",
+    "resident_after_cold_pages": 16,
+    "selected_interior": "",
+    "selected_leaf": "",
+    "status": "completed",
+    "strategy": "baseline",
+    "strategy_key": "baseline",
+    "successful_selected_resident_ratio": "",
+    "syscall_count": "",
+    "variant": "baseline",
+    "workload_type": "scan_zipf_full"
+  },
+  "repetition": 1,
+  "residency_metrics": {
+    "requested_selected_resident_ratio": null,
+    "successful_selected_resident_ratio": null
+  },
+  "status": "completed",
+  "strategy": {
+    "interior_k": null,
+    "leaf_k": null,
+    "n": null,
+    "strategy": "baseline",
+    "variant": "baseline"
+  },
+  "timeout": false,
+  "training_profile_sha256": null,
+  "workload_type": "scan_zipf_full"
+}

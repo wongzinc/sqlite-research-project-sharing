@@ -1,0 +1,235 @@
+{
+  "artifacts": {
+    "operations_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b/operations.csv",
+    "prefetch_result_json": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b/prefetch_result.json",
+    "run_record": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b/record/run-20260622-152429-4168655.log",
+    "stderr": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/logs/a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b.err",
+    "stdout": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/logs/a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b.out"
+  },
+  "backend": "pread",
+  "cell_id": "a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b",
+  "database_sha256": "35cf0dd25d71ec74e724d2065184c97f8019ad4505a26414bbd7351adc054ca3",
+  "error": null,
+  "experiment_id": "smoke",
+  "harness_metrics": {
+    "after_cold_ranges": [
+      [
+        1,
+        16
+      ],
+      [
+        674,
+        678
+      ]
+    ],
+    "average_latency_us": 43.09,
+    "first_query_latency_us": 19.97,
+    "major_page_faults": 245,
+    "minor_page_faults": 63,
+    "operations_path": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b/operations.csv",
+    "ops": 1000,
+    "resident_after_cold_pages": 21
+  },
+  "layout": "original",
+  "measurement_file": {
+    "name": "read_zipf_full_036.txt",
+    "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_036.txt",
+    "sha256": "c9a5f97bc1259d977d3289dcb8777bb21ae1b2bc5aec1c10231c3f71552164d0"
+  },
+  "memory_condition": {
+    "enabled": false,
+    "memory_max_bytes": null,
+    "name": "unlimited"
+  },
+  "prefetch_result": {
+    "backend": "pread",
+    "bytes_completed": 40960,
+    "bytes_requested": 40960,
+    "cell_id": "a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b",
+    "eligible_interior_count": 92,
+    "eligible_leaf_count": 26239,
+    "errors": [],
+    "extent_count": 10,
+    "interior_k": 5,
+    "io_operations": [
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 1,
+        "last_page": 1,
+        "length": 4096,
+        "offset": 0,
+        "operation_index": 0,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 2,
+        "last_page": 2,
+        "length": 4096,
+        "offset": 4096,
+        "operation_index": 1,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 3,
+        "last_page": 3,
+        "length": 4096,
+        "offset": 8192,
+        "operation_index": 2,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 4,
+        "last_page": 4,
+        "length": 4096,
+        "offset": 12288,
+        "operation_index": 3,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 5,
+        "last_page": 5,
+        "length": 4096,
+        "offset": 16384,
+        "operation_index": 4,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 6,
+        "last_page": 6,
+        "length": 4096,
+        "offset": 20480,
+        "operation_index": 5,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 7,
+        "last_page": 7,
+        "length": 4096,
+        "offset": 24576,
+        "operation_index": 6,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 8,
+        "last_page": 8,
+        "length": 4096,
+        "offset": 28672,
+        "operation_index": 7,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 674,
+        "last_page": 674,
+        "length": 4096,
+        "offset": 2756608,
+        "operation_index": 8,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 675,
+        "last_page": 675,
+        "length": 4096,
+        "offset": 2760704,
+        "operation_index": 9,
+        "success": true
+      }
+    ],
+    "leaf_k": 5,
+    "memory_condition": {
+      "enabled": false,
+      "memory_max_bytes": null,
+      "name": "unlimited"
+    },
+    "n": null,
+    "pread_chunk_bytes": 1048576,
+    "pread_elapsed_us": 294,
+    "prefetch_elapsed_us": 294,
+    "schema_version": 1,
+    "selected_interior_count": 5,
+    "selected_leaf_count": 5,
+    "selected_pages_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b/selected_pages.csv",
+    "selected_unique_page_count": 10,
+    "short_read_count": 0,
+    "status": "completed",
+    "strategy": "residency_topk",
+    "syscall_attempted_count": 10,
+    "syscall_failed_count": 0,
+    "syscall_succeeded_count": 10,
+    "variant": "interior5_leaf5"
+  },
+  "raw_result": {
+    "average_latency_us": 43.09,
+    "backend": "pread",
+    "cell_id": "a78fc1094bf8d44b4aa449147e452f9d79505212815af545138081f6686f743b",
+    "experiment_id": "smoke",
+    "first_query_latency_us": 19.97,
+    "interior_k": 5,
+    "layout": "original",
+    "leaf_k": 5,
+    "major_page_faults": 245,
+    "measurement_file": "read_zipf_full_036.txt",
+    "memory_condition": "unlimited",
+    "memory_limit_enabled": false,
+    "memory_max_bytes": "",
+    "minor_page_faults": 63,
+    "n": "",
+    "prefetch_elapsed_us": 294,
+    "repetition": 1,
+    "requested_selected_resident_ratio": 1.0,
+    "resident_after_cold_pages": 21,
+    "selected_interior": 5,
+    "selected_leaf": 5,
+    "status": "completed",
+    "strategy": "residency_topk",
+    "strategy_key": "residency_topk_interior5_leaf5_i5_l5",
+    "successful_selected_resident_ratio": 1.0,
+    "syscall_count": 10,
+    "variant": "interior5_leaf5",
+    "workload_type": "read_zipf_full"
+  },
+  "repetition": 1,
+  "residency_metrics": {
+    "requested_selected_resident_ratio": 1.0,
+    "successful_selected_resident_ratio": 1.0
+  },
+  "status": "completed",
+  "strategy": {
+    "interior_k": 5,
+    "leaf_k": 5,
+    "n": null,
+    "strategy": "residency_topk",
+    "variant": "interior5_leaf5"
+  },
+  "timeout": false,
+  "training_profile_sha256": "0378db343d90e881191e034a50bb29aa77c52148d735effb6e14720a46688a6d",
+  "workload_type": "read_zipf_full"
+}

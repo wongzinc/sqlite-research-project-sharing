@@ -1,0 +1,31 @@
+{
+  "backend": "madvise",
+  "cell_id": "f00d2d634bbd448a8701489f7e75a3bf230e65eb2811c39fa944dc246afcdea7",
+  "classification": {
+    "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/layouts/original/classify.csv",
+    "sha256": "6ec6837dc6a801c28e1cc08e90ccac570ee9a517765c0f6f03ab1b723349cc32"
+  },
+  "database": {
+    "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/layouts/original/database.db",
+    "sha256": "35cf0dd25d71ec74e724d2065184c97f8019ad4505a26414bbd7351adc054ca3"
+  },
+  "memory_condition": {
+    "enabled": false,
+    "memory_max_bytes": null,
+    "name": "unlimited"
+  },
+  "output": {
+    "result_json": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/f00d2d634bbd448a8701489f7e75a3bf230e65eb2811c39fa944dc246afcdea7/prefetch_result.json",
+    "selected_pages_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/f00d2d634bbd448a8701489f7e75a3bf230e65eb2811c39fa944dc246afcdea7/selected_pages.csv"
+  },
+  "parameters": {
+    "interior_k": null,
+    "leaf_k": null,
+    "n": null,
+    "pread_chunk_bytes": 1048576
+  },
+  "schema_version": 1,
+  "strategy": "range_interior",
+  "training_profile": null,
+  "variant": "range_interior"
+}

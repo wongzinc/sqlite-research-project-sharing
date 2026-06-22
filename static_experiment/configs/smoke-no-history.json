@@ -7,7 +7,7 @@
     "prefetch_runner": "../tools/bin/prefetch_runner",
     "classify_pages": "../tools/bin/classify_pages",
     "residency_checker": "../tools/bin/residency_checker",
-    "drop_caches_script": "/usr/local/sbin/static-experiment-drop-caches"
+    "drop_caches_script": "/usr/local/sbin/drop-caches"
   },
   "layouts": {
     "original": {"database": "../data/layouts/original/database.db", "classification": "../data/layouts/original/classify.csv", "metadata": "../data/layouts/original/metadata.json"}
@@ -24,7 +24,7 @@
       {"name": "offset_topk_interior", "n": {"values": [5]}}
     ]
   },
-  "cold_protocol": {"cold_advice": "none", "sqlite_open_timing": "before-cold", "schema_init_timing": "before-cold", "drop_caches_use_sudo": true},
+  "cold_protocol": {"cold_advice": "none", "sqlite_open_timing": "before-cold", "schema_init_timing": "before-cold", "drop_caches_use_sudo": false},
   "memory_conditions": [{"name": "unlimited", "enabled": false}],
   "execution": {"layout_order": ["original"], "strategy_order": ["baseline", "range_interior", "offset_topk_interior"], "cell_timeout_seconds": 180},
   "statistics": {"percentiles": [25, 50, 75, 99], "percentile_method": "nearest_rank"}

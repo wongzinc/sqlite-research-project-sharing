@@ -1,0 +1,11 @@
+page_number,page_type,file_offset,length,residency_count,selection_rank,io_operation_index,prefetch_succeeded
+1,leaf_table,0,4096,5,1,0,1
+2,interior_table,4096,4096,5,1,1,1
+3,interior_index,8192,4096,5,2,2,1
+4,interior_index,12288,4096,5,3,3,1
+5,leaf_table,16384,4096,5,2,4,1
+6,leaf_table,20480,4096,5,3,5,1
+7,leaf_table,24576,4096,5,4,6,1
+8,leaf_table,28672,4096,5,5,7,1
+674,interior_table,2756608,4096,5,4,8,1
+675,interior_table,2760704,4096,5,5,9,1

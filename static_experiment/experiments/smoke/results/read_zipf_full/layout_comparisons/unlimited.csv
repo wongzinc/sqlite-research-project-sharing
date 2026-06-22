@@ -1,0 +1,7 @@
+layout,metric,sample_count,mean,median,p25,p75,p99,min,max,original_baseline_mean,improvement_percent
+original,first_query_latency_us,5,241.50799999999998,218.82,191.71,224.05,384.27,188.69,384.27,241.50799999999998,0.0
+original,effective_first_query_latency_us,5,241.50799999999998,218.82,191.71,224.05,384.27,188.69,384.27,241.50799999999998,0.0
+original,average_latency_us,5,45.242000000000004,44.35,42.73,47.88,48.85,42.4,48.85,45.242000000000004,0.0
+original,major_page_faults,5,255.6,254.0,245.0,257.0,279.0,243.0,279.0,255.6,
+original,minor_page_faults,5,64.0,64.0,61.0,69.0,71.0,55.0,71.0,64.0,
+original,resident_after_cold_pages,5,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,
