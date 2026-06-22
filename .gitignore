@@ -162,3 +162,10 @@ p0_runs/work/
 p0_runs/regen_work/
 # P1 hotset backups from --regen-hotsets (old versions live in git history)
 *.p1.bak
+
+# --- P0 sweep batches (N-sweep / K-sweep): keep CSVs, ignore intermediates ---
+p0_runs_nsweep/work/
+p0_runs_nsweep/regen_work/
+p0_runs_ksweep/work/
+p0_runs_ksweep/regen_work/
+p0_runs*_matrix.log

@@ -1,81 +1,50 @@
-"""Figure 4: N-sweep plateau shapes — clean DB vs churned DB, all 3 workloads.
+"""Figure 4: layers_N plateau shape (clean DB, all 3 workloads) — P0.
 
 Story: layers_N first-query latency drops as N grows (more interior pages
-prefetched) and plateaus where remaining cost is leaf faults. The plateau
-HEIGHT and SHAPE are workload-dependent — A (Zipfian) drops to ~25 µs at
-N=5 because hot leaves are already warm; B/C (uniform / high-key) plateau
-much higher (250–300 µs) because every read is a cold leaf fault. Churn
-does not change the plateau shape.
+prefetched) and plateaus where the remaining cost is leaf faults. The plateau
+HEIGHT/SHAPE is workload-dependent. N=0 is the no-prefetch baseline.
+
+Data (P0): p0_runs_nsweep/summary_p0.csv — layers_N sweep on layout=orig,
+async arm, first-query median (warmup dropped). N=0 = baseline cell.
+NOTE: the churned-DB N-sweep (old fig had a 2nd panel) needs churn-checkpoint
+infra not in the P0 batch — see overall_results.md (kept pre-P0).
 """
-import csv, statistics
+import csv, re
 from collections import defaultdict
 from plot_utils import ROOT, WORKLOAD_COLORS, save
 import matplotlib.pyplot as plt
 
-# Clean-DB results: median across 3 reps per workload × N
-CLEAN_CSVS = {
-    "A": ROOT / "layout_rewriter/runs/matrix_Nsweep_orig_a_results.csv",
-    "B": ROOT / "layout_rewriter/runs/matrix_Nsweep_bc_results.csv",
-    "C": ROOT / "layout_rewriter/runs/matrix_Nsweep_bc_results.csv",
-}
+SUMMARY = ROOT / "p0_runs_nsweep/summary_p0.csv"
 
-def load_clean(csv_path, workload):
-    g = defaultdict(list)
-    with open(csv_path) as f:
-        for r in csv.DictReader(f):
-            if r["workload"] != workload: continue
-            g[int(r["N"])].append(float(r["first_query_us"]))
-    return {n: statistics.median(v) for n, v in g.items()}
+# workload -> {N: fq_median(async)}
+data = defaultdict(dict)
+for r in csv.DictReader(open(SUMMARY)):
+    w = r["workload"]
+    if r["strategy"] == "baseline" and r["arm"] == "baseline":
+        data[w][0] = float(r["fq_median"])
+        continue
+    if r["arm"] != "async":
+        continue
+    m = re.fullmatch(r"layers_(\d+)", r["strategy"])
+    if m and r["fq_median"]:
+        data[w][int(m.group(1))] = float(r["fq_median"])
 
-# Churned-DB matrices: cols are N0,N1,N5,N10,N20,N46,N92 — avg over 10 checkpoints (skip baseline row)
-CHURN_CSVS = {
-    "A": ROOT / "prefetch_churn/runs_nsweep_a/matrix_first_q_us.csv",
-    "B": ROOT / "prefetch_churn/runs_nsweep_b/matrix_first_q_us.csv",
-    "C": ROOT / "prefetch_churn/runs_nsweep/matrix_first_q_us.csv",
-}
+fig, ax = plt.subplots(figsize=(7.6, 4.6))
+for w in ["A", "B", "C"]:
+    d = data.get(w, {})
+    if not d:
+        continue
+    ns = sorted(d)
+    ax.plot(ns, [d[n] for n in ns], "-o", color=WORKLOAD_COLORS[w], lw=1.7, ms=5,
+            label=f"Workload {w}")
 
-def load_churn(csv_path):
-    rows = list(csv.DictReader(open(csv_path)))
-    # Skip "baseline" row (some matrices use 'checkpoint', others 'label')
-    label_col = "checkpoint" if "checkpoint" in rows[0] else "label"
-    rows = [r for r in rows if not r[label_col].startswith("baseline")]
-    out = {}
-    for col in rows[0].keys():
-        # column is N0/N1/... or N=0/N=1/...
-        if not col.startswith("N"): continue
-        try:
-            n = int(col.lstrip("N=").lstrip("N"))
-        except ValueError:
-            continue
-        out[n] = statistics.mean(float(r[col]) for r in rows)
-    return out
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.4), sharey=True)
-
-# Pre-load to find common N axis
-clean_by_w = {w: load_clean(p, w) for w, p in CLEAN_CSVS.items()}
-churn_by_w = {w: load_churn(p) for w, p in CHURN_CSVS.items()}
-
-for ax, data, title in [
-    (ax1, clean_by_w, "Clean DB (median of 3 reps)"),
-    (ax2, churn_by_w, "Churned DB (avg of 10 checkpoints × 50k ops)"),
-]:
-    for w in ["A", "B", "C"]:
-        d = data[w]
-        ns = sorted(d.keys())
-        ys = [d[n] for n in ns]
-        ax.plot(ns, ys, "-o", color=WORKLOAD_COLORS[w], lw=1.7, ms=5,
-                label=f"Workload {w}")
-    ax.set_xlabel("N (number of interior pages prefetched)")
-    ax.set_title(title)
-    ax.set_xscale("symlog", linthresh=1)
-    ax.set_xticks([0, 1, 5, 10, 20, 46, 92])
-    ax.set_xticklabels(["0", "1", "5", "10", "20", "46", "92"])
-    ax.legend(loc="upper right")
-
-ax1.set_ylabel("first-query latency (µs)")
-ax1.set_ylim(0, max(max(d.values()) for d in clean_by_w.values()) * 1.1)
-fig.suptitle("layers_N plateau · workload-dependent shape, churn-robust",
-             fontsize=12, y=1.0)
+ax.set_xlabel("N (number of interior pages prefetched; N=0 = baseline)")
+ax.set_ylabel("first-query latency (µs, async, median)")
+ax.set_xscale("symlog", linthresh=1)
+ax.set_xticks([0, 1, 5, 13, 34, 92])
+ax.set_xticklabels(["0", "1", "5", "13", "34", "92"])
+ax.set_ylim(0, max((max(d.values()) for d in data.values() if d), default=1) * 1.1)
+ax.legend(loc="upper right")
+ax.set_title("layers_N plateau · clean DB · layout orig · P0 (async first-query)")
 fig.tight_layout()
 save(fig, "04_nsweep_plateau")

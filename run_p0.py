@@ -86,6 +86,24 @@ STRATEGIES = [
     {"name": "2f_slru",   "kind": "slru"},
 ]
 
+
+def resolve_strategy(name):
+    """Map a strategy name to its spec. Named entries above win; otherwise parse
+    parameterized forms so N-sweeps / K-sweeps run through the same pipeline:
+      layers_<N>  -> first N interior pages (computed from classify, no precomputed file)
+      2e_K<K>     -> curated interior + top-K leaves (needs hot2e_*_K<K>.csv; regen first)
+    """
+    for s in STRATEGIES:
+        if s["name"] == name:
+            return s
+    m = re.fullmatch(r"layers_(\d+)", name)
+    if m:
+        return {"name": name, "kind": "layers", "n": int(m.group(1))}
+    m = re.fullmatch(r"2e_K(\d+)", name)
+    if m:
+        return {"name": name, "kind": "hot2e", "k": int(m.group(1))}
+    raise ValueError(f"unknown strategy: {name}")
+
 # --------------------------------------------------------------------------- parsing
 RE = {
     "first_query_us": re.compile(r"first_query_latency_us=([\d.]+)"),
@@ -563,8 +581,7 @@ def main():
 
     wls = [x for x in args.workloads.split(",") if x]
     layouts = [x for x in args.layouts.split(",") if x]
-    want = set(args.strategies.split(","))
-    strats = [s for s in STRATEGIES if s["name"] in want]
+    strats = [resolve_strategy(x) for x in args.strategies.split(",") if x]
     cells = [(w, ly, s) for w in wls for ly in layouts for s in strats]
 
     if args.list:
