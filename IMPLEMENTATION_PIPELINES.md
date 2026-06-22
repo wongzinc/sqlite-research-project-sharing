@@ -59,10 +59,10 @@
 | F1 | SQLite pager cache | `PRAGMA cache_size=0` | 不讓 SQLite 在 heap 偷存頁、繞過冷啟動（已寫死 [`:951`](benchmark_harness/benchmark_harness.c#L951)）|
 | F2 | SQLite 讀取路徑 | `PRAGMA mmap_size=檔案大小` | 讀走 mmap → OS page cache → drop-caches 管得到、prefetch 暖同一份（已寫死 [`:948`](benchmark_harness/benchmark_harness.c#L948)）|
 | F3 | 冷啟動清快取 | `/usr/local/sbin/drop-caches` = `sync; echo 3 > /proc/sys/vm/drop_caches`（全機，pagecache+dentry+inode）| 全機 drop 才是真冷；echo 3 一併清 dentry/inode |
-| F4 | CPU governor | `performance`（關 turbo 變頻）| 冷啟動 µs 對 CPU 頻率敏感 |
+| F4 | CPU governor | `performance`（關 turbo 變頻）；**u03 例外見下** | 冷啟動 µs 對 CPU 頻率敏感 |
 | F5 | **`read_ahead_kb`** | **128（裝置預設）為主值；外加 {0,128,512} 敏感度掃描** | **直接決定一次 fault/madvise 順帶載幾頁**——range 封頂、U 型、delivery% 全跟它糾纏（見 §3.7）|
 | F6 | THP | `madvise`（或固定 `never`，記錄）| huge page 改變 fault 粒度 |
-| F7 | hotset 輸入 | 每份 hotset.csv checksum 凍結 + 記錄產生方式 | hotset 是輸入；換一份結果就漂移 |
+| F7 | hotset 輸入 | 每份 hotset.csv checksum 凍結 + 記錄產生方式；**2d/2e/2f 用 P0 重產見下** | hotset 是輸入；換一份結果就漂移 |
 | F8 | 量測 workload | op[0] 必須是 `read`（A/B/C/Z 合格；D 只當 churn 產生器、不量 TTFQ）| first-query 定義 |
 
 ### §3.1 環境：`p0_env.sh`（每個 batch 前跑一次，並把值寫進 run record）
@@ -83,6 +83,14 @@ echo "env: kernel=$(uname -r) dev=$DEV ra_kb=$(cat /sys/block/$DEV/queue/read_ah
 
 > 沒記錄 = 之後任何 variance 都無法解釋 = 被迫重跑。`read_ahead_kb` 尤其關鍵——這很可能就是
 > 舊 P3 有 U 型、P1 變 plateau 的元兇之一。
+
+> **F4 在 u03 (meow1) 的落地（無 root）**：實機 u03 沒有 sudo，governor 寫不了,但**不需要**。
+> 這台是 **`amd-pstate-epp`** 驅動,真正釘頻率的是 **EPP**（`energy_performance_preference`）而非
+> governor 標籤——實測 EPP=`performance`、`boost=1`、負載核心 ~5.7 GHz（上限 5.76）。F4「powersave
+> 會鎖低頻」是舊 acpi-cpufreq 語意,不適用。因此 `p0_env.sh` 改成**記錄真實證據**:`P0_ENV` 行已
+> 加 `driver= epp= boost= maxfreq_khz=`,讓 artifact 自證「跑在 performance 頻率策略」即使 governor
+> 顯示 powersave。實機冷清快取走 setuid `/usr/local/sbin/drop-caches`（免 sudo）。
+> 已知限制:`read_ahead_kb` 的 {0,512} 掃描需 root,u03 只能用系統預設 128(= F5 主值,已符合),掃描留待有 root 的環境。
 
 ### §3.2 harness 呼叫（SQLite 設定 F1/F2 已寫死在 code）
 
@@ -166,6 +174,15 @@ mincore；(3) 環境釘死+記錄（尤其 `read_ahead_kb`）；(4) 每 cell 雙
 (b) [`p0_env.sh`](p0_env.sh)（pin + 記錄環境，印 `P0_ENV` 行）；(c) 通用 runner [`run_p0.py`](run_p0.py)
 （雙臂 pread/async、統一欄位、rep-major、`--dry-run`/`--list`）。三者皆在 u03 Linux 上跑（harness 用
 mmap/mincore/madvise）；`run_p0.py --dry-run` 可先在任何機器驗證矩陣與 hotset 頁數。
+
+**F7 落地：P0-native hotset 重產 + 凍結**（`run_p0.py --regen-hotsets`）。2d/2e/2f 原本讀的殘留檔是
+**舊 P1 warmup（`evict` = per-file fadvise）** 產的。`--regen-hotsets` 用 **P0 冷清（全機 drop-caches）**
+重產唯一被污染的輸入——base 殘留 `prefetch_slru/runs/hotpages_{w}{suffix}.csv`（2f 直接讀、2d 經
+symlink 讀,皆自動更新）；2e 再用新 base 重跑 [`gen_hotleaves.py`](prefetch_access/runs/gen_hotleaves.py)
+（top-K leaf 由 workload 頻率算,deterministic）。流程:`drop-caches → harness（cold-advice none、
+mmap full、不 prefetch）→ residency_checker snapshot → gen_hotleaves`。原檔備份到 `*.p1.bak`,完成後寫
+checksum 凍結清單 `p0_runs/hotset_freeze.sha256`;master batch 前用 `run_p0.py --verify-frozen` 當閘門。
+預設為 dry-run,需 `--yes` 才真正清快取/覆寫（每 (w,layout) 一次全機 drop,故同列「夜間 + 公告」）。
 
 **禮貌警告**：全機 drop 會把同學的 page cache 也沖掉。Master batch 要**夜間集中跑** + 群組公告。
 

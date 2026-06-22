@@ -25,8 +25,12 @@ warn() { echo "p0_env: WARN $*" >&2; }
 # --- resolve the whole-disk block device backing TARGET ---
 SRC=$(df --output=source "$TARGET" 2>/dev/null | tail -1)
 PART=$(basename "${SRC:-unknown}")
-DISK=$(lsblk -no pkname "/dev/$PART" 2>/dev/null | head -1)
-[ -z "${DISK:-}" ] && DISK=$(printf '%s' "$PART" | sed -E 's/p?[0-9]+$//')   # fallback: strip partition suffix
+if [ -e "/sys/block/$PART/queue/read_ahead_kb" ]; then
+  DISK="$PART"                                                  # PART is itself a whole disk (e.g. nvme0n1 mounted directly): no suffix to strip
+else
+  DISK=$(lsblk -no pkname "/dev/$PART" 2>/dev/null | head -1)   # partition -> parent disk
+  [ -z "${DISK:-}" ] && DISK=$(printf '%s' "$PART" | sed -E 's/p?[0-9]+$//')   # fallback: strip partition suffix (sdaN / nvme..pN)
+fi
 RA_PATH="/sys/block/$DISK/queue/read_ahead_kb"
 
 # --- pin (best-effort) ---
@@ -42,11 +46,19 @@ if [ -w "$THP" ]; then echo madvise > "$THP" 2>/dev/null || warn "set THP failed
 else warn "no write perm: $THP (need root)"; fi
 
 # --- record (read back actual effective values) ---
-gov=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo NA)
+CPU0=/sys/devices/system/cpu/cpu0/cpufreq
+gov=$(cat "$CPU0/scaling_governor" 2>/dev/null || echo NA)
 ra=$(cat "$RA_PATH" 2>/dev/null || echo NA)
 thp=$(sed -E 's/.*\[([a-z]+)\].*/\1/' "$THP" 2>/dev/null || echo NA)
 load=$(cut -d' ' -f1 /proc/loadavg 2>/dev/null || echo NA)
 memfree=$(awk '/MemAvailable/{print $2}' /proc/meminfo 2>/dev/null || echo NA)
+# Frequency policy: under amd-pstate-epp the "governor" label (often powersave) does NOT pin
+# low freq -- the EPP knob does. Record driver/epp/boost/maxfreq so the artifact proves the
+# real policy (e.g. epp=performance boost=1 => cores race to max under load) regardless of label.
+driver=$(cat "$CPU0/scaling_driver" 2>/dev/null || echo NA)
+epp=$(cat "$CPU0/energy_performance_preference" 2>/dev/null || echo NA)
+boost=$(cat /sys/devices/system/cpu/cpufreq/boost 2>/dev/null || echo NA)
+maxfreq=$(cat "$CPU0/cpuinfo_max_freq" 2>/dev/null || echo NA)
 
-printf 'P0_ENV kernel=%s disk=%s ra_kb=%s governor=%s thp=%s loadavg=%s memavail_kb=%s\n' \
-  "$(uname -r)" "$DISK" "$ra" "$gov" "$thp" "$load" "$memfree"
+printf 'P0_ENV kernel=%s disk=%s ra_kb=%s governor=%s driver=%s epp=%s boost=%s maxfreq_khz=%s thp=%s loadavg=%s memavail_kb=%s\n' \
+  "$(uname -r)" "$DISK" "$ra" "$gov" "$driver" "$epp" "$boost" "$maxfreq" "$thp" "$load" "$memfree"

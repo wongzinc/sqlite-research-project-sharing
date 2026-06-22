@@ -485,6 +485,23 @@ median 統計，見 [calibration/prefetch_time_summary.csv](calibration/prefetch
 > 揭露「first-q 看起來壓最低 ≠ end-to-end 真實最快」的 trade-off。具體量化
 > 見 §5.5。
 
+#### 3.4.1 量測環境與 hotset 凍結（reproducibility）
+
+每個 batch 由 `p0_env.sh` 釘住並**記錄**影響冷啟動 µs 的環境旋鈕,把單行 `P0_ENV`
+（kernel / disk / `read_ahead_kb` / governor / THP / loadavg）折進每筆 run record,環境一漂移
+即可事後察覺。冷清快取一律用全機 `/usr/local/sbin/drop-caches`（`echo 3`)。
+
+CPU 頻率策略需特別說明:量測主機 (Ryzen 9950X, `amd-pstate-epp`) 上,真正釘住頻率的是
+**EPP（`energy_performance_preference=performance`)** 而非 cpufreq governor 標籤——後者顯示
+`powersave` 但在 amd-pstate-epp 下不鎖低頻(實測 `boost=1`、負載核心 ~5.7 GHz)。`P0_ENV` 因此
+額外記錄 `driver/epp/boost/maxfreq_khz`,以證明各 run 跑在 performance 頻率策略。**已知限制**:
+本機無 root,`read_ahead_kb` 固定為裝置預設 128（即主值),{0,512} 敏感度掃描留待有 root 的環境。
+
+hotset 是**輸入**,結果隨之漂移,故全部 checksum 凍結。其中歷史派 hotset (2d/2e/2f) 一律以
+**P0 流程重產**(`run_p0.py --regen-hotsets`:P0 全機冷清 → workload warmup → mincore 殘留快照;
+2e 的 top-K leaf 由 workload 頻率決定、deterministic),凍結清單 `p0_runs/hotset_freeze.sha256`
+在 master batch 前由 `--verify-frozen` 把關,杜絕 P1 來源混入。
+
 ---
 
 ### 3.5 Prefetch delivery：pread oracle vs. async hint（selection–delivery 拆解）

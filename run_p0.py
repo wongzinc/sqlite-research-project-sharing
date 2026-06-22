@@ -31,9 +31,11 @@ Usage:
 """
 import argparse
 import csv
+import hashlib
 import os
 import re
 import shlex
+import shutil
 import statistics
 import subprocess
 import sys
@@ -48,6 +50,13 @@ WARMER      = ROOT / "prefetch_warmer/src/warmer"
 DROP_CACHES = "/usr/local/sbin/drop-caches"
 P0_ENV      = ROOT / "p0_env.sh"
 PAGE_SIZE   = 4096
+
+# --regen-hotsets inputs (P0-native regeneration of the P1-provenance hotsets, F7)
+RESIDENCY_CHECKER = ROOT / "residency_checker/residency_checker"
+GEN_HOTLEAVES     = ROOT / "prefetch_access/runs/gen_hotleaves.py"
+SLRU_RUNS         = ROOT / "prefetch_slru/runs"      # canonical base residency (2f/2d source)
+ACCESS_RUNS       = ROOT / "prefetch_access/runs"    # hot2e curated files (2e source)
+FREEZE_PATH       = ROOT / "p0_runs/hotset_freeze.sha256"
 
 DBS = {
     "orig":   ROOT / "layout_rewriter/runs/test.db",
@@ -249,6 +258,208 @@ def aggregate(raw_rows, summary_path):
                         f"{max(cold):.1f}" if cold else ""])
 
 
+# --------------------------------------------------------------- regen / freeze (F7)
+def capture_env_line(target):
+    """Run p0_env.sh (record-only is fine) and return its single P0_ENV line."""
+    try:
+        r = subprocess.run(["sh", str(P0_ENV), str(target)],
+                           capture_output=True, text=True, timeout=60)
+        for ln in (r.stdout + r.stderr).splitlines():
+            if ln.startswith("P0_ENV"):
+                return ln
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return "P0_ENV (capture failed)"
+
+
+def _sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _resident_count(path):
+    """Count is_resident==1 rows in a residency CSV; None if the file is absent."""
+    real = resolve_pointer(path)
+    if not Path(real).exists():
+        return None
+    n = 0
+    with open(real, newline="") as f:
+        for r in csv.DictReader(f):
+            if r.get("is_resident", "0").strip() == "1":
+                n += 1
+    return n
+
+
+def _backup_once(path):
+    """Copy <path> content to <path>.p1.bak once (preserve P1 provenance, never clobber)."""
+    bak = Path(str(path) + ".p1.bak")
+    if bak.exists():
+        return bak
+    real = resolve_pointer(path)
+    if Path(real).exists():
+        shutil.copy2(real, bak)
+        return bak
+    return None
+
+
+def regen_hotsets(args):
+    """P0-native regeneration of the 2d/2e/2f residency inputs (F7).
+
+    Only the base residency file (prefetch_slru/runs/hotpages_{w}{suffix}.csv) is P1-tainted:
+      - 2f reads it directly; 2d reads it via the prefetch_access symlink -> both auto-update.
+      - 2e = resident-interior(base) U top-K-leaves(workload freq, deterministic) -> re-run gen_hotleaves.
+    Step A drops the page cache full-machine (echo 3) once per (w,layout); gated behind --yes.
+    """
+    wls = [x for x in args.workloads.split(",") if x]
+    layouts = [x for x in args.layouts.split(",") if x]
+    ks = [int(x) for x in args.regen_k.split(",") if x]
+
+    base_for = lambda w, ly: SLRU_RUNS / f"hotpages_{w.lower()}{SLRU_SUFFIX[ly]}.csv"
+    hot2e_for = lambda w, ly, k: ACCESS_RUNS / f"hot2e_{w}_{ly}_K{k}.csv"
+
+    print(f"# regen P0-native hotsets  workloads={wls} layouts={layouts} K={ks}")
+    print(f"{'cell':10} {'base file':28} {'old_resident':>12}")
+    for w in wls:
+        for ly in layouts:
+            base = base_for(w, ly)
+            print(f"{w+'/'+ly:10} {base.name:28} {str(_resident_count(base)):>12}")
+
+    if not args.yes:
+        print("\n[dry-run] --regen-hotsets without --yes: nothing dropped or overwritten.")
+        print("  Step A (per cell): full-machine drop-caches -> run workload (cold-advice none,")
+        print("                     mmap full, no prefetch) -> residency_checker snapshot.")
+        print(f"  Step B (per cell x K={ks}): re-run gen_hotleaves.py with the new base.")
+        print("  Originals are backed up to *.p1.bak; freeze manifest written to")
+        print(f"  {FREEZE_PATH}. Re-run with --yes during the announced window.")
+        return 0
+
+    # sanity: tools present
+    for tool in (BH, RESIDENCY_CHECKER, GEN_HOTLEAVES):
+        if not Path(tool).exists():
+            sys.stderr.write(f"regen: missing required tool {tool}\n")
+            return 1
+
+    env_line = capture_env_line(DBS[layouts[0]])
+    (Path(args.outdir)).mkdir(parents=True, exist_ok=True)
+    workdir = Path(args.outdir) / "regen_work"
+    workdir.mkdir(parents=True, exist_ok=True)
+    sys.stderr.write(env_line + "\n")
+
+    results = []   # (w, ly, kind, path, old, new)
+
+    # --- Step A: P0-native base residency ---
+    for w in wls:
+        for ly in layouts:
+            base = base_for(w, ly)
+            db, wl = DBS[ly], WORKLOADS[w]
+            if not Path(db).exists():
+                sys.stderr.write(f"  ERROR db missing: {db}\n"); continue
+            old = _resident_count(base)
+            _backup_once(base)
+            try:
+                subprocess.run([DROP_CACHES], check=True, timeout=120)
+                subprocess.run(
+                    [str(BH), "--db", str(db), "--workload", str(wl),
+                     "--output", str(workdir / "warmup_ops.csv"),
+                     "--record-dir", str(workdir / "warmup_rec"),
+                     "--cold-advice", "none", "--mmap-size", str(Path(db).stat().st_size)],
+                    capture_output=True, text=True, timeout=600, check=True)
+                subprocess.run([str(RESIDENCY_CHECKER), str(db), str(resolve_pointer(base))],
+                               capture_output=True, text=True, timeout=300, check=True)
+            except (subprocess.SubprocessError, OSError) as e:
+                sys.stderr.write(f"  ERROR Step A {w}/{ly}: {e}\n"); continue
+            new = _resident_count(base)
+            results.append((w, ly, "2f_base", base, old, new))
+            sys.stderr.write(f"[regen-A] {w} {ly} {base.name}: resident {old} -> {new}\n")
+
+    # --- Step B: 2e curated files (deterministic; no cache clear) ---
+    for w in wls:
+        for ly in layouts:
+            base = base_for(w, ly)
+            db, wl = DBS[ly], WORKLOADS[w]
+            classify = resolve_pointer(CLASSIFY[ly])
+            for k in ks:
+                out = hot2e_for(w, ly, k)
+                old2e = _resident_count(out)
+                _backup_once(out)
+                try:
+                    subprocess.run(
+                        [sys.executable, str(GEN_HOTLEAVES), str(db), str(classify),
+                         str(resolve_pointer(base)), str(wl), str(k), str(out)],
+                        capture_output=True, text=True, timeout=600, check=True)
+                except (subprocess.SubprocessError, OSError) as e:
+                    sys.stderr.write(f"  ERROR Step B {w}/{ly}/K{k}: {e}\n"); continue
+                new2e = _resident_count(out)
+                results.append((w, ly, f"2e_K{k}", out, old2e, new2e))
+                sys.stderr.write(f"[regen-B] {w} {ly} {out.name}: marked {old2e} -> {new2e}\n")
+
+    if not results:
+        sys.stderr.write("regen: nothing regenerated.\n")
+        return 1
+
+    _write_freeze(results, env_line, args)
+
+    print("\n=== regen summary (old -> new resident/marked counts) ===")
+    print(f"{'cell':22} {'file':32} {'old':>6} {'new':>6}")
+    for w, ly, kind, path, old, new in results:
+        print(f"{w+'/'+ly+'/'+kind:22} {Path(path).name:32} {str(old):>6} {str(new):>6}")
+    return 0
+
+
+def _write_freeze(results, env_line, args):
+    """Write the checksum-freeze manifest over every regenerated hotset (deduped by real path)."""
+    FREEZE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    files, seen = [], set()
+    for _, _, _, path, _, _ in results:
+        real = Path(resolve_pointer(path))
+        if str(real) in seen or not real.exists():
+            continue
+        seen.add(str(real))
+        files.append(real)
+    lines = ["# P0 hotset freeze manifest (F7) -- sha256  <path-relative-to-repo-root>",
+             f"# {env_line}",
+             f"# regen workloads={args.workloads} layouts={args.layouts} K={args.regen_k}"]
+    for p in sorted(files):
+        try:
+            rel = p.relative_to(ROOT)
+        except ValueError:
+            rel = p
+        lines.append(f"{_sha256(p)}  {rel}")
+    FREEZE_PATH.write_text("\n".join(lines) + "\n")
+    sys.stderr.write(f"froze {len(files)} hotsets -> {FREEZE_PATH}\n")
+
+
+def verify_frozen(args):
+    """Re-hash every file in the freeze manifest and diff against it (master-batch gate)."""
+    if not FREEZE_PATH.exists():
+        sys.stderr.write(f"verify-frozen: no manifest at {FREEZE_PATH}; run --regen-hotsets --yes first\n")
+        return 1
+    bad = n = 0
+    for ln in FREEZE_PATH.read_text().splitlines():
+        ln = ln.strip()
+        if not ln or ln.startswith("#"):
+            continue
+        try:
+            want, rel = ln.split(None, 1)
+        except ValueError:
+            continue
+        n += 1
+        real = Path(resolve_pointer(ROOT / rel))
+        if not real.exists():
+            sys.stderr.write(f"  MISSING {rel}\n"); bad += 1; continue
+        got = _sha256(real)
+        if got != want:
+            sys.stderr.write(f"  CHANGED {rel}\n    want {want}\n    got  {got}\n"); bad += 1
+    if bad:
+        sys.stderr.write(f"verify-frozen: {bad}/{n} hotset(s) differ from freeze manifest\n")
+        return 1
+    sys.stderr.write(f"verify-frozen: OK, all {n} frozen hotsets match\n")
+    return 0
+
+
 # ------------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(description="General P0 cold-start runner (two-arm).")
@@ -262,7 +473,19 @@ def main():
     ap.add_argument("--no-pin-env", action="store_true", help="skip p0_env.sh (still records)")
     ap.add_argument("--dry-run", action="store_true", help="print the plan + sample cmd, run nothing")
     ap.add_argument("--list", action="store_true", help="list cells and exit")
+    ap.add_argument("--regen-hotsets", action="store_true",
+                    help="P0-native regen of 2d/2e/2f residency inputs (F7); dry-run unless --yes")
+    ap.add_argument("--regen-k", default="10,500", help="K values for 2e regen (matrix uses 10,500)")
+    ap.add_argument("--yes", action="store_true",
+                    help="actually perform --regen-hotsets (full-machine drop-caches per cell)")
+    ap.add_argument("--verify-frozen", action="store_true",
+                    help="re-hash hotsets against the freeze manifest and exit (master-batch gate)")
     args = ap.parse_args()
+
+    if args.verify_frozen:
+        sys.exit(verify_frozen(args))
+    if args.regen_hotsets:
+        sys.exit(regen_hotsets(args))
 
     wls = [x for x in args.workloads.split(",") if x]
     layouts = [x for x in args.layouts.split(",") if x]
