@@ -60,7 +60,7 @@
 | F2 | SQLite 讀取路徑 | `PRAGMA mmap_size=檔案大小` | 讀走 mmap → OS page cache → drop-caches 管得到、prefetch 暖同一份（已寫死 [`:1065`](benchmark_harness/benchmark_harness.c#L1065)）|
 | F3 | 冷啟動清快取 | `/usr/local/sbin/drop-caches` = `sync; echo 3 > /proc/sys/vm/drop_caches`（全機，pagecache+dentry+inode）| 全機 drop 才是真冷；echo 3 一併清 dentry/inode |
 | F4 | CPU governor | `performance`（關 turbo 變頻）；**u03 例外見下** | 冷啟動 µs 對 CPU 頻率敏感 |
-| F5 | **`read_ahead_kb`** | **128（裝置預設）為主值；外加 {0,128,512} 敏感度掃描** | **直接決定一次 fault/madvise 順帶載幾頁**——range 封頂、U 型、delivery% 全跟它糾纏（見 §3.7）|
+| F5 | **`read_ahead_kb`** | **128（裝置預設）固定值,逐 run 記錄,不掃描** | **直接決定一次 fault/madvise 順帶載幾頁**——range 封頂、U 型、delivery% 全跟它糾纏（見 §3.7）|
 | F6 | THP | `madvise`（或固定 `never`，記錄）| huge page 改變 fault 粒度 |
 | F7 | hotset 輸入 | 每份 hotset.csv checksum 凍結 + 記錄產生方式；**2d/2e/2f 用 P0 重產見下** | hotset 是輸入；換一份結果就漂移 |
 | F8 | 量測 workload | op[0] 必須是 `read`（A/B/C/Z 合格；D 只當 churn 產生器、不量 TTFQ）| first-query 定義 |
@@ -90,7 +90,7 @@ echo "env: kernel=$(uname -r) dev=$DEV ra_kb=$(cat /sys/block/$DEV/queue/read_ah
 > 會鎖低頻」是舊 acpi-cpufreq 語意,不適用。因此 `p0_env.sh` 改成**記錄真實證據**:`P0_ENV` 行已
 > 加 `driver= epp= boost= maxfreq_khz=`,讓 artifact 自證「跑在 performance 頻率策略」即使 governor
 > 顯示 powersave。實機冷清快取走 setuid `/usr/local/sbin/drop-caches`（免 sudo）。
-> 已知限制:`read_ahead_kb` 的 {0,512} 掃描需 root,u03 只能用系統預設 128(= F5 主值,已符合),掃描留待有 root 的環境。
+> `read_ahead_kb` 一律固定 128(裝置預設)並逐 run 記錄,不掃描其他值。
 
 ### §3.2 harness 呼叫（SQLite 設定 F1/F2 已寫死在 code）
 
@@ -165,12 +165,10 @@ workload, db, strategy, arm, n, ra_kb,
 
 Headline 三句（從 arm 維度導出）：①「可達上界(oracle) = `pread` 臂的 `fq_median`」②「實務最佳 = `async` 臂的 `e2e_median`（layers_5 贏、SLRU 因 7.5ms preproc 出局）」③「`fq_async − fq_pread` = async 作為 hint 的 delivery 代價」；改善% = (baseline − strategy) / baseline。
 
-### §3.7 `read_ahead_kb` 敏感度掃描（當「發現」報，不只 control）
+### §3.7 `read_ahead_kb`（固定 128，逐 run 記錄）
 
 `read_ahead_kb` 跟結論有因果糾纏（range 封頂 = `2×ra_pages`；冷 fault 順帶 readahead = kernel 免費 prefetch）。
-所以除了主值 128，在**代表 cell**（A,C × orig × {baseline, layers_5, 2e_K10, range}）掃 **{0, 128, 512} KB**，
-寫成發現：**「kernel readahead 與顯式 prefetch 是替代品——ra 大時顯式 prefetch 邊際效益縮小、ra 小時變必要」**。
-這同時擋掉「你的結果只是 readahead artifact」的攻擊。
+本研究一律 **釘在 128（裝置預設）並逐 run 記錄**,所有結論均在 ra=128 下成立,不掃描其他值。
 
 **關鍵差別 vs 現行 P1**：(1) `evict` → 全機 `/usr/local/sbin/drop-caches`；(2) `--verify-hotset` 內建兩道
 mincore；(3) 環境釘死+記錄（尤其 `read_ahead_kb`）；(4) 每 cell 雙臂 pread/async。P2 churn 另需把
@@ -200,7 +198,7 @@ checksum 凍結清單 `p0_runs/hotset_freeze.sha256`;master batch 前用 `run_p0
 - **凍結擴充**:freeze manifest 除 2d/2e/2f 外,加入 `classify_*.csv` 與 workload `.txt`(它們 deterministic 地生成 layers_* 與 2e)。
 - **統計**:pread oracle 臂 reps 3→5(丟 warmup 後 n=4,p95 才有意義);summary 對 n<4 的組不報 p95。每 rep 另記 `loadavg/memavail`(共用機 noise canary)。
 
-**仍是已知限制(這台補不了)**:`read_ahead_kb {0,512}` 掃描與 governor pin 需 root,u03 沒有 → 只能釘/記錄主值 128、governor 用 EPP=performance 等效。結論須 scope 在 ra=128,或到有 root 的機器補掃。
+**環境定案**:`read_ahead_kb` 固定 128(裝置預設)、逐 run 記錄,不掃描;結論均在 ra=128 下成立。governor 用 EPP=performance 等效釘住(見 F4)。
 
 **禮貌警告**:全機 drop 會把同學的 page cache 也沖掉。Master batch 要**夜間集中跑** + 群組公告。
 

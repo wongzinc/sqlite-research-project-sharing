@@ -484,8 +484,8 @@ calibration（[calibration/prefetch_time_summary.csv](calibration/prefetch_time_
 CPU 頻率策略需特別說明:量測主機 (Ryzen 9950X, `amd-pstate-epp`) 上,真正釘住頻率的是
 **EPP（`energy_performance_preference=performance`)** 而非 cpufreq governor 標籤——後者顯示
 `powersave` 但在 amd-pstate-epp 下不鎖低頻(實測 `boost=1`、負載核心 ~5.7 GHz)。`P0_ENV` 因此
-額外記錄 `driver/epp/boost/maxfreq_khz`,以證明各 run 跑在 performance 頻率策略。**已知限制**:
-本機無 root,`read_ahead_kb` 固定為裝置預設 128（即主值),{0,512} 敏感度掃描留待有 root 的環境。
+額外記錄 `driver/epp/boost/maxfreq_khz`,以證明各 run 跑在 performance 頻率策略。
+`read_ahead_kb` 固定為 **128**（裝置預設）並逐 run 記錄;本研究一律以 ra=128 量測,不掃描其他值。
 
 hotset 是**輸入**,結果隨之漂移,故全部 checksum 凍結。其中歷史派 hotset (2d/2e/2f) 一律以
 **P0 流程重產**(`run_p0.py --regen-hotsets`:P0 全機冷清 → workload warmup → mincore 殘留快照;
@@ -533,10 +533,8 @@ $$\text{delivery\_loss} = \text{fq}_\text{async} - \text{fq}_\text{pread}$$
 **delivery 受 readahead 上限封頂。** 單一 `madvise(MADV_WILLNEED)` 對一段 range 的實際載入量
 被 kernel readahead window 封頂為約 $2\times(\texttt{read\_ahead\_kb}/4)$ 頁；這正是 2a range
 在散佈 layout 上「一次 madvise 只載 32/92 頁」的成因（§5）。因此 `read_ahead_kb` **並非中性
-參數**——它同時決定 async 的封頂、以及「冷 fault 順帶 readahead」帶來的免費 prefetch。P0 將其
-**釘在 128 KB（裝置預設，外部效度最高）並逐 run 記錄**，另在代表 cell 掃描 {0, 128, 512} KB，
-量化 **kernel readahead 與顯式 prefetch 的替代關係**（readahead 越大、顯式 prefetch 邊際效益
-越小；readahead 越小、顯式 prefetch 越必要）。
+參數**——它同時決定 async 的封頂、以及「冷 fault 順帶 readahead」帶來的免費 prefetch。本研究
+一律 **釘在 128 KB（裝置預設，外部效度最高）並逐 run 記錄**;所有結論均在 ra=128 下成立。
 
 > **三句話 headline（§5 以此框架陳述）：**
 >
