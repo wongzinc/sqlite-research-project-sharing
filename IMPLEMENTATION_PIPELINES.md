@@ -204,7 +204,7 @@ checksum 凍結清單 `p0_runs/hotset_freeze.sha256`;master batch 前用 `run_p0
 
 ### §3.8 P0 執行進度 checklist（2026-06-22）
 
-全部量測一律經 `run_p0.py`,`cold_pct`=0 為通過門檻。new_workloads 不在範圍內。
+全部量測一律經 `run_p0.py`（churn 經 [`run_p0_churn.py`](run_p0_churn.py),其量測仍呼叫 run_p0 的 `run_one`/`run_baseline`),`cold_pct`=0 為通過門檻。new_workloads 不在範圍內。
 
 **已完成的 P0 組合（量測數據 + 對應 figure 已重畫）**
 
@@ -212,16 +212,16 @@ checksum 凍結清單 `p0_runs/hotset_freeze.sha256`;master batch 前用 `run_p0
 - [x] **layers_N sweep** — layers_{1,2,3,5,8,13,21,34,46,64,92} + baseline × A/B/C × orig。→ [`p0_runs_nsweep/summary_p0.csv`](p0_runs_nsweep/summary_p0.csv) · figure 04（clean-DB plateau）。
 - [x] **2e K-sweep** — 2d + 2e_K{10,40,50,92,100,500} × A/B/C × {orig,vacuum,ta}（hot2e 由 P0 base 經 gen_hotleaves 重產）。→ [`p0_runs_ksweep/summary_p0.csv`](p0_runs_ksweep/summary_p0.csv) · figure 10（K-sweep curves;重現 A×ta×K=92 readahead hump）。
 
-**未完成的組合（figure 仍 pre-P0;each 需額外設施或批次,見備註）**
+- [x] **Dense layers_N sweep × 3 layouts + Workload Z** — layers_{1..92} + baseline × **A/B/C/Z** × {orig,vacuum,ta}。→ [`p0_runs_nsweep_dense/summary_p0.csv`](p0_runs_nsweep_dense/summary_p0.csv) · figure 11（dense 3-layout）+ figure 09（Z robustness:hotspot 位置變、plateau 不變）。
+- [x] **RAM-pressure（cgroup MemoryMax 20MB vs unlimited）× 6 策略 × A/B/C × 3 layout** — `run_p0.py --mem-limit 20M`(systemd-run --user --scope)。→ [`p0_runs_ram20m/summary_p0.csv`](p0_runs_ram20m/summary_p0.csv)(20M)vs master(unlimited)· figure 06(ratio heatmap;比值近 1.0 → RAM 壓力幾乎不影響首查)。
+- [x] **Churn-evolution（11 checkpoints × 5k mutation ops）× A/B/C** — [`run_p0_churn.py`](run_p0_churn.py):量測走 run_p0(drop-caches + verify + warmer),churn 用 harness write 模式跑 `page_churn_write` 切片製造。static t=0 hotset(2e_K10 / layers_92)跨 checkpoint 重用。→ [`p0_runs_churn/churn_evolution.csv`](p0_runs_churn/churn_evolution.csv) · figure 07。
+- [x] **Churned dense N-sweep × A/B/C** — 同 `run_p0_churn.py`,在最終 churned DB(50k churn 後)跑 layers_N sweep。→ [`p0_runs_churn/churn_nsweep.csv`](p0_runs_churn/churn_nsweep.csv) · figure 12。
 
-- [ ] **RAM-pressure（cgroup MemoryMax 20MB vs unlimited）× 策略 × 3 layout** — figure 06。需 `run_p0.py` 加 cgroup memory-limit 模式（systemd-run --user scope）。
-- [ ] **Churn-evolution（10 checkpoints × 50k churn ops）× A/B/C** — figure 07。需 churn-checkpoint harness（增量製造 churn + 每 checkpoint 量測），不在 run_p0 範圍。
-- [ ] **Multi-process prefetch cadence** — figure 08。獨立 multiprocess harness,不在 run_p0 範圍。
-- [ ] **Workload Z (zlowkey) N-sweep × layout** — figure 09。workload 在 repo 內(`benchmark_harness/workloads/workload_zipf_lowkey.txt`,非 new_workloads),**可行**,只差再跑一個 `run_p0.py` N-sweep batch。
-- [ ] **Dense N=0..92 sweep × 3 layout（clean）** — figure 11。run_p0 已支援(動態 layers_N),只差跑一個更密、含 vacuum/ta 的 batch。P0 coarse 版見 figure 04。
-- [ ] **Churned dense N-sweep × A/B/C** — figure 12。需 churned DB + checkpoint 設施。
+**P0 模型外（無法用 run_p0 表達,已評估）**
 
-> 進度:**3 / 9 量測組合** 已 P0 完成;**8 / 14 figures** 已用 P0 重畫,其餘 6 張(06/07/08/09/11/12)在 md 標 ⚠️ pre-P0。figure 對照總表見 [`figures/README.md`](figures/README.md) 頂部 banner。
+- [~] **Multi-process prefetch cadence** — figure 08。**本質是 multiprocess warm-keeping**(背景 prefetcher 每 cadence 秒重暖 + 前景 probe,靠真實時間流逝 + 競爭者驅逐),**不是 cold-start TTFQ**,因此無法用單一進程的 P0(`run_p0`)pipeline 表達。維持既有 multiprocess 量測,在 md 標 ⚠️ 非 P0 cold-start 模型。
+
+> 進度:**8 / 9 量測組合** 已 P0 完成(只剩 cadence,模型外);**13 / 14 figures** 已用 P0 重畫,figure 08 為唯一 P0-模型外例外。figure 對照總表見 [`figures/README.md`](figures/README.md) 頂部 banner。
 
 ---
 

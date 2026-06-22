@@ -3,16 +3,16 @@
 14 figures covering all research weeks. Each script is self-contained
 and reproducible from the CSVs in the repo.
 
-> **📊 P0 status (2026-06-22).** Figures whose experiment is the fixed strategy
-> matrix or a parameterized sweep have been **redrawn from P0 data**
-> (`run_p0.py` → `p0_runs*/summary_p0.csv`, async arm, `cold_pct`=0):
-> **01, 02, 03, 04, 05, 10, 13, 14**.
-> The rest still use **pre-P0** data because their experiment type isn't covered by
-> `run_p0.py` (would need separate P0 infra) — clearly marked below:
-> **06** RAM-pressure (needs cgroup memory-limited P0 runs), **07** churn-evolution
-> (needs churn-checkpoint harness), **08** cadence (multiprocess harness),
-> **09** zlowkey N-sweep + **11** dense 3-layout N-sweep + **12** churned N-sweep
-> (feasible via more P0 N-sweep batches; not yet run — fig 04 is the P0 N-sweep reference).
+> **📊 P0 status (2026-06-22).** **13 of 14 figures redrawn from P0 data**
+> (`run_p0.py` / `run_p0_churn.py` → `p0_runs*/`, async arm, `cold_pct`=0 on every cell):
+> **01, 02, 03, 04, 05, 06, 07, 09, 10, 11, 12, 13, 14**.
+> P0 data sources: master matrix (`p0_runs/`), N-sweep (`p0_runs_nsweep/`, `p0_runs_nsweep_dense/`),
+> K-sweep (`p0_runs_ksweep/`), RAM-pressure 20M (`p0_runs_ram20m/`, via `--mem-limit`),
+> churn (`p0_runs_churn/`, via `run_p0_churn.py`).
+> **Only exception: 08** cadence — an intrinsically **multiprocess warm-keeping** experiment
+> (background re-warmer vs foreground probe over real elapsed time), **not** a cold-start TTFQ,
+> so it cannot be expressed by the single-process P0 pipeline. It stays on its existing
+> multiprocess measurement and is marked ⚠️ "outside P0 cold-start model".
 
 ## Quick start
 

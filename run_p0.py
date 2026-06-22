@@ -72,6 +72,7 @@ WORKLOADS = {
     "A": ROOT / "benchmark_harness/workloads/workload_a_zipfian.txt",
     "B": ROOT / "benchmark_harness/workloads/workload_uniform.txt",
     "C": ROOT / "prefetch_churn/workloads/page_churn_benchmark_high.txt",
+    "Z": ROOT / "benchmark_harness/workloads/workload_zipf_lowkey.txt",  # low-key Zipfian (robustness)
 }
 SLRU_SUFFIX = {"orig": "", "vacuum": "_vacuum", "ta": "_ta"}
 
@@ -211,6 +212,16 @@ def _harness_hardening(args):
             "--warm-cpu-ms", str(args.warm_cpu_ms), "--cpu", str(args.cpu)]
 
 
+def _mem_prefix(args):
+    """RAM-pressure: run the harness inside a transient user-scope cgroup with a memory cap
+    (systemd-run --user --scope, no root needed). 'none' => unconfined. Used for fig 06."""
+    spec = getattr(args, "mem_limit", "none")
+    if not spec or spec == "none":
+        return []
+    return ["systemd-run", "--user", "--scope", "-q",
+            "-p", f"MemoryMax={spec}", "-p", "MemorySwapMax=0", "--"]
+
+
 def _sys_load():
     """(loadavg_1m, MemAvailable_kB) captured at call time; '' on failure."""
     load = mem = ""
@@ -231,7 +242,7 @@ def _sys_load():
 def run_one(db, workload, hotset, method, recdir, args, use_drop_caches=True):
     """One harness invocation for one arm; returns parsed metrics (or None on failure)."""
     deliver = write_deliver_script(recdir, db, hotset, method)
-    cmd = [str(BH), "--db", str(db), "--workload", str(workload),
+    cmd = _mem_prefix(args) + [str(BH), "--db", str(db), "--workload", str(workload),
            "--output", str(Path(recdir) / "ops.csv"),
            "--record-dir", str(recdir),
            "--cold-advice", "dontneed",
@@ -263,7 +274,7 @@ def run_baseline(db, workload, recdir, args, verify_hotset=None):
     also emits verify_cold_pct -> the SAME cold gate applies to the denominator (otherwise a
     warm baseline silently inflates every strategy's improvement-%); delivery_pct then
     reports what kernel readahead alone delivered."""
-    cmd = [str(BH), "--db", str(db), "--workload", str(workload),
+    cmd = _mem_prefix(args) + [str(BH), "--db", str(db), "--workload", str(workload),
            "--output", str(Path(recdir) / "ops.csv"),
            "--record-dir", str(recdir),
            "--cold-advice", "dontneed",
@@ -561,6 +572,7 @@ def main():
     ap.add_argument("--ra-kb", type=int, default=128, help="read_ahead_kb to pin via p0_env.sh")
     ap.add_argument("--cpu", type=int, default=2, help="core the harness pins itself to via sched_setaffinity (-1 = no pin)")
     ap.add_argument("--warm-cpu-ms", type=int, default=10, help="busy-spin the pinned core this long before op[0]")
+    ap.add_argument("--mem-limit", default="none", help="RAM-pressure: run harness in a systemd --user scope with MemoryMax (e.g. 20M); 'none'=unconfined")
     ap.add_argument("--cold-pct-max", type=float, default=1.0, help="exclude cells whose cold check exceeds this %% from summary")
     ap.add_argument("--no-pin-env", action="store_true", help="skip p0_env.sh (still records)")
     ap.add_argument("--dry-run", action="store_true", help="print the plan + sample cmd, run nothing")

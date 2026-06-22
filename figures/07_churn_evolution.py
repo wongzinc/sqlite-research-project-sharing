@@ -1,68 +1,46 @@
-"""Figure 7: First-query latency evolution across 10 churn checkpoints.
+"""Figure 7: First-query latency across churn checkpoints — P0.
 
-Story: static t=0 hotpages survive 10 × 5000 = 50k churn ops on three
-orthogonal churn settings — C × insert-churn, A × delete-churn, and
-B × mixed churn. Baseline (no prefetch) drifts upward; prefetch arms
-hold flat — proving the hot-page set is workload-stable under realistic
-churn. On A/C (which have hot leaves) access-pattern (2d/2e_K) beats
-file-offset layers_N; on B (uniform, no hot leaf) the two are tied
-because top-K leaves degenerate to a near-random pick — but neither
-decays.
+Story: a STATIC t=0 hotset (captured once on the clean DB) is re-used to prefetch at
+every checkpoint as the DB churns (5k mutation ops per checkpoint, 50k total). If the
+static hotset goes stale, prefetch first-query would creep back toward baseline. Per
+workload: baseline (no prefetch) vs 2e_K10-static vs layers_92-static.
+
+Data (P0): p0_runs_churn/churn_evolution.csv — measurement via run_p0 (drop-caches +
+verify-hotset + warmer), churn applied via the harness in write mode. layout=orig.
 """
 import csv
+from collections import defaultdict
 from plot_utils import ROOT, save
 import matplotlib.pyplot as plt
 
-CSV_C = ROOT / "prefetch_churn/runs_access_churn/matrix_first_q_us.csv"
-CSV_A = ROOT / "prefetch_churn/runs_access_churn_a/matrix_first_q_us.csv"
-CSV_B = ROOT / "prefetch_churn/runs_access_churn_b/matrix_first_q_us.csv"
+CSVP = ROOT / "p0_runs_churn/churn_evolution.csv"
+STRATS = [("baseline", "baseline", "#9ca3af"),
+          ("2e_K10_static", "2e_K10 (static t=0)", "#059669"),
+          ("layers_92_static", "layers_92 (static t=0)", "#1e3a8a")]
+WORKLOADS = ["A", "B", "C"]
+WL_TITLE = {"A": "Workload A (Zipfian)", "B": "Workload B (uniform)", "C": "Workload C (churn-heavy)"}
 
-def load(path):
-    rows = list(csv.DictReader(open(path)))
-    label_col = list(rows[0].keys())[0]
-    cols = [c for c in rows[0].keys() if c != label_col]
-    labels = [r[label_col] for r in rows]
-    series = {c: [float(r[c]) for r in rows] for c in cols}
-    return labels, series
+# (workload, strategy) -> {checkpoint: fq}
+data = defaultdict(dict)
+for r in csv.DictReader(open(CSVP)):
+    data[(r["workload"], r["strategy"])][int(r["checkpoint"])] = float(r["first_query_us"])
 
-def cpx(labels):
-    # baseline + 10 checkpoints; x = 0, 5, 10, ..., 50 (k ops)
-    return list(range(0, 5 * len(labels), 5))
-
-NAME_MAP = {
-    "n0_base":     ("baseline (no prefetch)", "#9ca3af", "-"),
-    "n5_layers":   ("layers_5",                "#3b82f6", "-"),
-    "n92_layers":  ("layers_92",               "#1e3a8a", "-"),
-    "acc_2d":      ("2d (interior-only)",      "#10b981", "-"),
-    "2d_static":   ("2d (interior-only)",      "#10b981", "-"),
-    "acc_2e_k10":  ("2e_K10 (+ 10 hot leaves)","#059669", "-"),
-    "2e_k10_static":("2e_K10 (+ 10 hot leaves)","#059669","-"),
-    "2e_k50_static":("2e_K50 (+ 50 hot leaves)","#047857","-"),
-}
-
-fig, axes = plt.subplots(1, 3, figsize=(15, 4.4), sharey=True)
-
-for ax, (path, title) in zip(axes, [
-    (CSV_C, "Workload C · insert-heavy churn (id 600001+)"),
-    (CSV_A, "Workload A · delete-heavy churn (id 1+, Zipfian reads)"),
-    (CSV_B, "Workload B · mixed churn (uniform reads, no hot leaf)"),
-]):
-    labels, series = load(path)
-    x = cpx(labels)
-    for k, vals in series.items():
-        if k not in NAME_MAP: continue
-        nm, color, ls = NAME_MAP[k]
-        ax.plot(x, vals, ls, marker="o", ms=4, color=color, lw=1.6, label=nm)
-    ax.set_xlabel("cumulative churn ops (thousands)")
-    ax.set_title(title, fontsize=10)
-    ax.set_yscale("log")
-    ax.set_xticks([0, 10, 20, 30, 40, 50])
-    ax.legend(loc="center right", fontsize=8)
-    ax.set_ylim(10, 1000)
-
-axes[0].set_ylabel("first-query latency (µs, log scale)")
-fig.suptitle("Static t=0 hot-pages survive 50 k-op churn across 3 workloads · "
-             "access-pattern matches file-offset on B (no hot leaf)",
-             fontsize=11, y=1.0)
+fig, axes = plt.subplots(1, 3, figsize=(14, 4.4), sharey=True)
+ymax = max((v for d in data.values() for v in d.values()), default=1)
+for ax, w in zip(axes, WORKLOADS):
+    for skey, slbl, color in STRATS:
+        d = data.get((w, skey), {})
+        cks = sorted(d)
+        if cks:
+            ax.plot(cks, [d[c] for c in cks], "-o", color=color, lw=1.7, ms=4, label=slbl)
+    ax.set_title(WL_TITLE[w])
+    ax.set_xlabel("churn checkpoint (×5k mutation ops)")
+    ax.grid(True, linestyle=":", alpha=0.4)
+    if w == "A":
+        ax.set_ylabel("first-query latency (µs, median of 3)")
+        ax.legend(loc="upper left", fontsize=8)
+axes[0].set_ylim(0, ymax * 1.08)
+fig.suptitle("First-query vs churn · static t=0 hotset re-used across checkpoints · P0",
+             fontsize=12, y=1.0)
 fig.tight_layout()
 save(fig, "07_churn_evolution")
