@@ -7,8 +7,9 @@
 
 > 🆕 **2026-06-19 P0 Pipeline 統一**：所有 workload 的 cold-start measurement
 > 機制已統一為 P0 pipeline——harness MADV chain (`--cold-advice dontneed`) +
-> `/usr/local/sbin/drop-caches` setuid wrapper 全機 drop + residency_checker
-> 強制 verify 0%。歷史上各 workload 跨 sub-project 用不同機制量測（per-file
+> `/usr/local/sbin/drop-caches` setuid wrapper 全機 drop + harness 內建
+> `--verify-hotset`（`cold_pct`/`delivery_pct`,非外部 residency_checker；措辭 2026-06-22 校正）。
+> 歷史上各 workload 跨 sub-project 用不同機制量測（per-file
 > posix_fadvise / system sudo drop_caches / prefetch_churn 跳過 MADV chain），
 > 這是 [CONTRADICTIONS.md](CONTRADICTIONS.md) 30 條矛盾的程式碼根因，已在
 > commit `691bd6b` + `fc998cb` 統一。詳見

@@ -42,11 +42,14 @@
 > （end-to-end stacked，2f SLRU bar 高過 baseline 紅線、真實 cold start 反而慢
 > 2-6 倍）。
 >
-> 🆕 **2026-06-19 P0 Pipeline 統一**：所有 sub-project 的 cold-start
+> 🆕 **2026-06-19 P0 Pipeline 統一**（措辭 2026-06-22 校正）：所有 sub-project 的 cold-start
 > 機制已統一到 P0 pipeline（harness MADV chain + `/usr/local/sbin/drop-caches`
-> setuid wrapper + residency_checker verify 0%），詳見
-> [IMPLEMENTATION_PIPELINES.md](IMPLEMENTATION_PIPELINES.md)。**但**：
-> **本檔以下所有 dimension 的數字皆收集於 P0 之前**，混用 4 條歷史 pipeline：
+> setuid wrapper + **harness 內建 `--verify-hotset`** 兩道 mincore 量 `cold_pct`/`delivery_pct`；
+> 注意**不是**外部 `residency_checker`——後者的 ~100ms 間隔會污染 `fq_async`），詳見
+> [IMPLEMENTATION_PIPELINES.md](IMPLEMENTATION_PIPELINES.md)。歷史派 hotset（2d/2e/2f）由
+> `run_p0.py --regen-hotsets` 以 P0 全機 drop-caches 重產並 checksum 凍結。**但**：
+> **本檔以下所有 dimension 的數字皆收集於 P0 之前**，混用 4 條歷史 pipeline，
+> 待 P0 master rerun 取代（屆時每個 % 需從新 `summary_p0.csv` 重算）：
 >
 > | Pipeline | 機制 | 用在哪些 dimension |
 > |---|---|---|

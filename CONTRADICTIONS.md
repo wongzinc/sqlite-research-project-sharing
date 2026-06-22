@@ -16,6 +16,8 @@
 性質:🔴 硬矛盾 / 🟠 待釐清 / 🟡 可調和 / ⚪ 編輯殘留。
 （RP 行號為審查當下已被編輯過的版本。）
 
+> **2026-06-22 P0 更新**:P0 pipeline(`run_p0.py` + `p0_env.sh` + harness `--verify-hotset`)上線並通過審查,**流程根因已從工具面堵住**:#24(機制不統一)→ 每 cell 同一條全機 `drop-caches` + 同一個 `warmer` 交付引擎;#27(步驟序)→ harness 序固定 `open/prepare(before-cold) → drop-caches → verify cold_pct → prefetch → verify delivery_pct → 首查`,`cold_pct>1%` 自動剔除。**數據類矛盾(#1–#16)P0 不能回溯改舊數字**,只能靠 master rerun 產生單一權威值、並刪掉舊 P1/P2/P3 表 + 從新 `summary_p0.csv` 重算每個 %;在那之前仍標 🔴。另補 **baseline(無 prefetch)臂**,improvement-% 才有分母(關係到 #2/#8/#13/#15/#16)。
+
 ---
 
 ## 主表:矛盾點彙整
@@ -45,11 +47,11 @@
 | 21 | 理論 | 1c 重排對 A/B 相反因果 | ⚠️ **部分解（2026-06-19 第二輪）**：seek distance hypothesis 已寫進去當 hedge；但 (a) 1c 對 A 加速 / 對 B 變慢的方向與強度都來自 P1 baseline（跨 pipeline 不可比）、(b) seek distance 假設**尚未量測**、(c) P0 rerun 後方向可能收斂或反轉。**論文最終用前必須等 P0 數字 + 補 leaf-fault distance 小實驗 verify**。改寫位置：REPORT §6.1 #3 已含完整 pending caveat | ⚠️ |
 | ~~22~~ | ~~理論~~ | ~~layers_N 定義自我抵觸~~ | ✅ **已解**：嚴格定義 = qsort by file offset + take first N interior。「≈ B+tree 上 N 層」**只在 1c 成立**；1a/1b 不成立。**勘誤**：page 1 是 schema root 不是 items 表 root（CONTRADICTIONS 原 audit 跟我前一版都誤）。改寫位置：REPORT §4.2 / overall_strategies §2c | ✅ |
 | ~~23~~ | ~~理論~~ | ~~multi-process cadence 規則相反~~ | ✅ **已解**：兩條規則不是兩個獨立 metric，是**同一條 trade-off frontier 的兩端**——cadence 小 = warm 但 overhead 高；cadence 大 = 省 overhead 但 first-q 退回 cold。實測 cadence=1s first-q 19 µs、30s 已退到 ~347 µs ≈ baseline。改寫位置：REPORT §6.1 footnote + §6.2.3 圖 8 caption | ✅ |
-| 24 | 流程 | 冷啟動清快取機制三種 + RP 宣稱「一致可比」 | RP:`posix_fadvise`+「所有數字一致可比」([RP:107](sqlite-research-project-sharing/REPORT.md#L107),[132](sqlite-research-project-sharing/REPORT.md#L132));SE:`MADV_COLD→PAGEOUT→DONTNEED` 主+fadvise 補([SE:39](sqlite-research-project-sharing/strategies_explained.md#L39));OR:「機制不同**不能跨表比**,A 用 sudo drop_caches」([OR:45](sqlite-research-project-sharing/overall_results.md#L45),[61](sqlite-research-project-sharing/overall_results.md#L61)) | 🔴 |
-| 25 | 流程 | 「免 warmup pass」誤貼 history 派 | 2d([OR:981](sqlite-research-project-sharing/overall_results.md#L981))、2e_K10([OS:271](sqlite-research-project-sharing/overall_strategies.md#L271)) 被稱「不需 warmup pass」;但定義為「看歷史=先跑一輪 dump」([RP:391](sqlite-research-project-sharing/REPORT.md#L391)) | 🔴 |
-| 26 | 流程 | structure 工具名/命令簽章不一 | `prefetch_layers <db> <classify> 92 4096 range`([WFR:51](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L51),[145](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L145)) vs `prefetch test.db classify range`([SE:102](sqlite-research-project-sharing/strategies_explained.md#L102),[225](sqlite-research-project-sharing/strategies_explained.md#L225)) | 🔴 |
-| 27 | 流程 | harness 步驟序 / 「before≈0」 | SE 步①(evict 前)盤點卻稱「before≈0」([SE:37](sqlite-research-project-sharing/strategies_explained.md#L37),[92](sqlite-research-project-sharing/strategies_explained.md#L92));RP 把 open/prepare/cache_size=0/pre-clear mincore 放 clear 前([RP:311-314](sqlite-research-project-sharing/REPORT.md#L311)),SE timeline 無這些步 | 🔴 |
-| 28 | 流程 | workload 副本 symlink vs copy | A=symlink([WFR:76](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L76)) 有 md5 一致保證;B/C=「另一份 copy」([WFR:85](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L85),[94](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L94)) 可能漂移 | 🔴 |
+| 24 | 流程 | 冷啟動清快取機制三種 + RP 宣稱「一致可比」 | RP:`posix_fadvise`+「所有數字一致可比」([RP:107](sqlite-research-project-sharing/REPORT.md#L107),[132](sqlite-research-project-sharing/REPORT.md#L132));SE:`MADV_COLD→PAGEOUT→DONTNEED` 主+fadvise 補([SE:39](sqlite-research-project-sharing/strategies_explained.md#L39));OR:「機制不同**不能跨表比**,A 用 sudo drop_caches」([OR:45](sqlite-research-project-sharing/overall_results.md#L45),[61](sqlite-research-project-sharing/overall_results.md#L61)) | 🟠 **工具面已解(2026-06-22)**：P0 每 cell 統一 `madvise chain + 全機 drop-caches`,單一 `warmer` 引擎;**數據收斂待 master rerun** 取代舊表 |
+| 25 | 流程 | 「免 warmup pass」誤貼 history 派 | 2d([OR:981](sqlite-research-project-sharing/overall_results.md#L981))、2e_K10([OS:271](sqlite-research-project-sharing/overall_strategies.md#L271)) 被稱「不需 warmup pass」;但定義為「看歷史=先跑一輪 dump」([RP:391](sqlite-research-project-sharing/REPORT.md#L391)) | ✅ **已解(2026-06-22)**：P0 `--regen-hotsets` Step A 明確做 warmup pass(drop→workload→殘留快照)重產 2d/2e/2f |
+| 26 | 流程 | structure 工具名/命令簽章不一 | `prefetch_layers <db> <classify> 92 4096 range`([WFR:51](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L51),[145](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L145)) vs `prefetch test.db classify range`([SE:102](sqlite-research-project-sharing/strategies_explained.md#L102),[225](sqlite-research-project-sharing/strategies_explained.md#L225)) | ✅ **moot(2026-06-22)**：P0 把 native tool 降為離線 hotset 產生器,量測一律走 `warmer`,簽章不再在量測路徑上 |
+| 27 | 流程 | harness 步驟序 / 「before≈0」 | SE 步①(evict 前)盤點卻稱「before≈0」([SE:37](sqlite-research-project-sharing/strategies_explained.md#L37),[92](sqlite-research-project-sharing/strategies_explained.md#L92));RP 把 open/prepare/cache_size=0/pre-clear mincore 放 clear 前([RP:311-314](sqlite-research-project-sharing/REPORT.md#L311)),SE timeline 無這些步 | ✅ **已解(2026-06-22)**：harness 序固定 `open/prepare(before-cold) → drop-caches → cold_pct → prefetch → delivery_pct → 首查`;open/prepare 摸到的 schema 頁會被後續全機 drop 清掉,故「before≈0」成立且可由 `cold_pct` 稽核;RP §3.3 已改寫對齊 |
+| 28 | 流程 | workload 副本 symlink vs copy | A=symlink([WFR:76](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L76)) 有 md5 一致保證;B/C=「另一份 copy」([WFR:85](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L85),[94](sqlite-research-project-sharing/WORKLOAD_FILE_REFERENCE.md#L94)) 可能漂移 | ✅ **已解(2026-06-22)**：P0 freeze manifest 把三個 workload `.txt` 一併 checksum 凍結,`--verify-frozen` 把關 |
 | 29 | 流程 | Workload D 規模標示 | 標「100,000 ops」([OW:196](sqlite-research-project-sharing/overall_workloads.md#L196)) 但實際只用「5,000×10=50,000」([OW:218](sqlite-research-project-sharing/overall_workloads.md#L218)) | 🔴 |
 | ~~30~~ | ~~編輯~~ | ~~§2.3 TODO 殘留~~ | ✅ **已解（2026-06-19）**：TODO blockquote 移除，§2.3 開頭改為直接敘述 | ✅ |
 
@@ -82,8 +84,10 @@
 
 1. **第 24 條(冷啟動清快取機制不統一)** — companion 文件白紙黑字說各維度機制不同、
    「不能跨表比較」,報告卻宣稱「所有數字一致可比」並把不同機制的數字拉進同一張比較表。
-   這是第 1 / 6 / 7 / 9 等一票數據矛盾的**流程根源**。建議:鎖定單一清快取機制與
-   單一 batch 重算,或在每張跨維度比較表明確標注機制與不可比性。
+   這是第 1 / 6 / 7 / 9 等一票數據矛盾的**流程根源**。**✅ 工具面已解(2026-06-22)**:P0
+   鎖定單一清快取機制(全機 `drop-caches`)與單一交付引擎(`warmer`),每 cell 同條流程。
+   **剩下的是執行**:跑 P0 master batch 產生單一權威數字、刪掉舊 P1/P2/P3 表、從新
+   `summary_p0.csv` 重算所有 %,#1/#6/#7/#9 等才真正關閉。
 
 2. **第 18–20 條(madvise 語意、「載太多變慢」歸因、leaves 自然熱)** — 這幾條是論文
    因果敘事的主梁,且彼此相互牽連。建議:統一 `MADV_WILLNEED` 的描述(async hint、
