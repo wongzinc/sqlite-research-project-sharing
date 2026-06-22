@@ -839,7 +839,7 @@ first query 仍保住，但 avg/majflt 視 layout 與策略而定。*
 一個 process 做 prefetch，所有共用同一份 cache 的 process 都受惠。
 
 ![Multi-process prefetch cadence 對 first query latency 的影響](figures/out/08_cadence_comparison.png)
-*（⚠️ P0 cold-start 模型外:cadence 本質是 multiprocess warm-keeping(背景重暖 vs 前景 probe、靠真實時間 + 競爭驅逐),非 cold-start TTFQ,無法用單進程 run_p0 表達;維持既有 multiprocess 量測。詳見 IMPLEMENTATION_PIPELINES §3.8。）*
+*（P0:`run_p0_cadence.py`——每 probe 做全機 drop-caches + 3s gap(背景 warmer 以 cadence 重暖)+ harness 量首查(verify-hotset)。cadence 1s/5s → warm(26/29µs)、30s/never → cold(281/305µs):cadence ≤ gap → warm。）*
 
 *圖 8：writer + prefetcher + probe 三個 thread 的實驗。**Cadence 是個
 trade-off 旋鈕**：cadence=1s 維持 first-q ~19 µs（−94%）、cadence=30s 退回

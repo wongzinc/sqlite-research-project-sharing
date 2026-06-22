@@ -204,7 +204,7 @@ checksum 凍結清單 `p0_runs/hotset_freeze.sha256`;master batch 前用 `run_p0
 
 ### §3.8 P0 執行進度 checklist（2026-06-22）
 
-全部量測一律經 `run_p0.py`（churn 經 [`run_p0_churn.py`](run_p0_churn.py),其量測仍呼叫 run_p0 的 `run_one`/`run_baseline`),`cold_pct`=0 為通過門檻。new_workloads 不在範圍內。
+全部量測一律經 `run_p0.py`(churn 經 [`run_p0_churn.py`](run_p0_churn.py)、cadence 經 [`run_p0_cadence.py`](run_p0_cadence.py),兩者量測都用 P0 harness + 全機 drop-caches),`cold_pct`=0 為通過門檻。new_workloads 不在範圍內。
 
 **已完成的 P0 組合（量測數據 + 對應 figure 已重畫）**
 
@@ -217,11 +217,9 @@ checksum 凍結清單 `p0_runs/hotset_freeze.sha256`;master batch 前用 `run_p0
 - [x] **Churn-evolution（11 checkpoints × 5k mutation ops）× A/B/C** — [`run_p0_churn.py`](run_p0_churn.py):量測走 run_p0(drop-caches + verify + warmer),churn 用 harness write 模式跑 `page_churn_write` 切片製造。static t=0 hotset(2e_K10 / layers_92)跨 checkpoint 重用。→ [`p0_runs_churn/churn_evolution.csv`](p0_runs_churn/churn_evolution.csv) · figure 07。
 - [x] **Churned dense N-sweep × A/B/C** — 同 `run_p0_churn.py`,在最終 churned DB(50k churn 後)跑 layers_N sweep。→ [`p0_runs_churn/churn_nsweep.csv`](p0_runs_churn/churn_nsweep.csv) · figure 12。
 
-**P0 模型外（無法用 run_p0 表達,已評估）**
+- [x] **Multi-process prefetch cadence** — figure 08。[`run_p0_cadence.py`](run_p0_cadence.py):每 probe 做 **P0 全機 drop-caches** + gap(3s,期間背景 warmer 以 cadence 重暖)+ harness 量首查(`--cold-advice none --verify-hotset`,P0 hardening)。cadence = 背景 warmer(實驗本質)。實測 cadence 1s/5s → warm(26/29µs)、30s/never → cold(281/305µs),重現「cadence ≤ gap → warm」。→ [`p0_runs_cadence/cadence_results.csv`](p0_runs_cadence/cadence_results.csv) · figure 08。
 
-- [~] **Multi-process prefetch cadence** — figure 08。**本質是 multiprocess warm-keeping**(背景 prefetcher 每 cadence 秒重暖 + 前景 probe,靠真實時間流逝 + 競爭者驅逐),**不是 cold-start TTFQ**,因此無法用單一進程的 P0(`run_p0`)pipeline 表達。維持既有 multiprocess 量測,在 md 標 ⚠️ 非 P0 cold-start 模型。
-
-> 進度:**8 / 9 量測組合** 已 P0 完成(只剩 cadence,模型外);**13 / 14 figures** 已用 P0 重畫,figure 08 為唯一 P0-模型外例外。figure 對照總表見 [`figures/README.md`](figures/README.md) 頂部 banner。
+> 進度:**9 / 9 量測組合** 已 P0 完成;**14 / 14 figures** 已用 P0 資料重畫。figure 對照總表見 [`figures/README.md`](figures/README.md) 頂部 banner。
 
 ---
 
