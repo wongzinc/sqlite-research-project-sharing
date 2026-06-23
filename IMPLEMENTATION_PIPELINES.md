@@ -202,24 +202,57 @@ checksum 凍結清單 `p0_runs/hotset_freeze.sha256`;master batch 前用 `run_p0
 
 **禮貌警告**:全機 drop 會把同學的 page cache 也沖掉。Master batch 要**夜間集中跑** + 群組公告。
 
-### §3.8 P0 執行進度 checklist（2026-06-22）
+### §3.8 P0 執行覆蓋紀錄（2026-06-23 審查更新）
 
-全部量測一律經 `run_p0.py`(churn 經 [`run_p0_churn.py`](run_p0_churn.py)、cadence 經 [`run_p0_cadence.py`](run_p0_cadence.py),兩者量測都用 P0 harness + 全機 drop-caches),`cold_pct`=0 為通過門檻。new_workloads 不在範圍內。
+**「P0 pipeline」嚴格定義 = `run_p0.py`**（+ 同進程包裝 [`run_p0_churn.py`](run_p0_churn.py)、[`run_p0_cadence.py`](run_p0_cadence.py),量測都呼叫 P0 harness:全機 `drop-caches` + `--verify-hotset`(cold/delivery)+ `--cpu`/`--warm-cpu-ms`/`--readonly`,`cold_pct`=0 為門檻)。`benchmark_harness/workloads` 的 A/B/C/Z 為範圍內;new_workloads **不在**範圍。
+> **`static_experiment/`(`orchestrator.py` + `formal-experiment.json`)不是 P0 pipeline** —— 它是獨立的正式框架,用**另一支** harness(`static_experiment/tools/bin/benchmark_harness`,**沒有** `--verify-hotset`/`--readonly`/`--cpu`/`--warm-cpu-ms`、只 `--cold-advice none` + drop-caches),策略名(range_interior/offset_topk_interior/residency_topk)與 workload(read/scan_*)也不同。它目前只跑過 `smoke`/`smoke-scan` 子集、`formal-experiment.json` 未跑,且**其結果不進本研究的 P0 md**(刻意:非同一套 P0 紀律)。詳見 §3.9。
 
-**已完成的 P0 組合（量測數據 + 對應 figure 已重畫）**
+**A. 已用 P0 跑完的組合**(全 `cold_pct`=0)
 
-- [x] **Master matrix** — 6 策略(layers_5/92, 2d, 2e_K10/K500, 2f_slru) × A/B/C × {orig,vacuum,ta} + 每 (workload,layout) 一個 no-prefetch **baseline**。雙臂 pread/async,pread 5 / async 10 / baseline 10 reps。→ [`p0_runs/summary_p0.csv`](p0_runs/summary_p0.csv) · figures 02/05/13/14（first-q/e2e/layout）+ 03（CDF,取自 `p0_runs/work` per-op trace）+ 01（layout 靜態）。117 cell 全 `cold_pct`=0。
-- [x] **layers_N sweep** — layers_{1,2,3,5,8,13,21,34,46,64,92} + baseline × A/B/C × orig。→ [`p0_runs_nsweep/summary_p0.csv`](p0_runs_nsweep/summary_p0.csv) · figure 04（clean-DB plateau）。
-- [x] **2e K-sweep** — 2d + 2e_K{10,40,50,92,100,500} × A/B/C × {orig,vacuum,ta}（hot2e 由 P0 base 經 gen_hotleaves 重產）。→ [`p0_runs_ksweep/summary_p0.csv`](p0_runs_ksweep/summary_p0.csv) · figure 10（K-sweep curves;重現 A×ta×K=92 readahead hump）。
+| 批次 | workloads | layouts | strategies | reps/arms | 產物 | figures |
+|---|---|---|---|---|---|---|
+| Master matrix | A,B,C | orig,vacuum,ta | baseline, layers_5, layers_92, 2d, 2e_K10, 2e_K500, 2f_slru | pread5/async10/baseline10,雙臂 | [`p0_runs/`](p0_runs/summary_p0.csv) | 01,02,03,05,13,14 |
+| layers_N sweep | A,B,C | orig | layers_{1,2,3,5,8,13,21,34,46,64,92}+baseline | pread1/async5 | [`p0_runs_nsweep/`](p0_runs_nsweep/summary_p0.csv) | 04 |
+| 2e K-sweep | A,B,C | orig,vacuum,ta | 2d, 2e_K{10,40,50,92,100,500} | pread1/async5 | [`p0_runs_ksweep/`](p0_runs_ksweep/summary_p0.csv) | 10 |
+| Dense N-sweep + **Z** | A,B,C,**Z** | orig,vacuum,ta | layers_{1..92}(14 個 N)+baseline | pread1/async3 | [`p0_runs_nsweep_dense/`](p0_runs_nsweep_dense/summary_p0.csv) | 09,11 |
+| RAM-pressure 20M | A,B,C | orig,vacuum,ta | baseline,layers_5/92,2d,2e_K10/K500,2f_slru | pread1/async5,`--mem-limit 20M` | [`p0_runs_ram20m/`](p0_runs_ram20m/summary_p0.csv)(vs master=unlimited) | 06 |
+| Churn-evolution | A,B,C | **orig** | baseline, 2e_K10-static, layers_92-static | 3 reps × 11 checkpoint | [`p0_runs_churn/churn_evolution.csv`](p0_runs_churn/churn_evolution.csv) | 07 |
+| Churned N-sweep | A,B,C | **orig** | layers_{1..92}-static(最終 churned DB) | 3 reps | [`p0_runs_churn/churn_nsweep.csv`](p0_runs_churn/churn_nsweep.csv) | 12 |
+| Cadence | A | orig | static hotset × cadence∈{1,5,30,never}s | P0 drop + gap + warmer 重暖 | [`p0_runs_cadence/cadence_results.csv`](p0_runs_cadence/cadence_results.csv) | 08 |
 
-- [x] **Dense layers_N sweep × 3 layouts + Workload Z** — layers_{1..92} + baseline × **A/B/C/Z** × {orig,vacuum,ta}。→ [`p0_runs_nsweep_dense/summary_p0.csv`](p0_runs_nsweep_dense/summary_p0.csv) · figure 11（dense 3-layout）+ figure 09（Z robustness:hotspot 位置變、plateau 不變）。
-- [x] **RAM-pressure（cgroup MemoryMax 20MB vs unlimited）× 6 策略 × A/B/C × 3 layout** — `run_p0.py --mem-limit 20M`(systemd-run --user --scope)。→ [`p0_runs_ram20m/summary_p0.csv`](p0_runs_ram20m/summary_p0.csv)(20M)vs master(unlimited)· figure 06(ratio heatmap;比值近 1.0 → RAM 壓力幾乎不影響首查)。
-- [x] **Churn-evolution（11 checkpoints × 5k mutation ops）× A/B/C** — [`run_p0_churn.py`](run_p0_churn.py):量測走 run_p0(drop-caches + verify + warmer),churn 用 harness write 模式跑 `page_churn_write` 切片製造。static t=0 hotset(2e_K10 / layers_92)跨 checkpoint 重用。→ [`p0_runs_churn/churn_evolution.csv`](p0_runs_churn/churn_evolution.csv) · figure 07。
-- [x] **Churned dense N-sweep × A/B/C** — 同 `run_p0_churn.py`,在最終 churned DB(50k churn 後)跑 layers_N sweep。→ [`p0_runs_churn/churn_nsweep.csv`](p0_runs_churn/churn_nsweep.csv) · figure 12。
+→ **14 / 14 figures 全部用 P0 資料重畫**(figure 對照見 [`figures/README.md`](figures/README.md) 頂部 banner)。
 
-- [x] **Multi-process prefetch cadence** — figure 08。[`run_p0_cadence.py`](run_p0_cadence.py):每 probe 做 **P0 全機 drop-caches** + gap(3s,期間背景 warmer 以 cadence 重暖)+ harness 量首查(`--cold-advice none --verify-hotset`,P0 hardening)。cadence = 背景 warmer(實驗本質)。實測 cadence 1s/5s → warm(26/29µs)、30s/never → cold(281/305µs),重現「cadence ≤ gap → warm」。→ [`p0_runs_cadence/cadence_results.csv`](p0_runs_cadence/cadence_results.csv) · figure 08。
+**B. P0 範圍內、尚未跑的細粒度組合**(誠實列出,非 batch 而是 cell 層級的洞)
 
-> 進度:**9 / 9 量測組合** 已 P0 完成;**14 / 14 figures** 已用 P0 資料重畫。figure 對照總表見 [`figures/README.md`](figures/README.md) 頂部 banner。
+- [ ] **Workload Z × 完整 master matrix** —— Z 目前**只在 dense N-sweep(layers_N)**跑過,沒進 master 的 {baseline, 2d, 2e_K10, 2e_K500, 2f_slru, layers_5/92} 雙臂量測。Z 是 robustness workload(核心結果 = fig 09),要補的話跑 `run_p0.py --workloads Z --layouts orig,vacuum,ta`。
+- [ ] **Churn × vacuum/ta layout** —— `run_p0_churn.py` 寫死 `LAYOUT="orig"`,churn-evolution / churned N-sweep **只有 orig**;vacuum/ta 的 churn 未跑。
+- [ ] **Churn × 其他策略 static** —— churn-evolution 只測 baseline / 2e_K10 / layers_92 的 static t=0 hotset;2d / 2f_slru static 未測。
+- [ ] **read_ahead_kb {0,512} sweep** —— 需 root(u03 無),只跑了主值 128(F5);掃描留待有 root 環境。
+
+> 上述 B 皆為「次要 / robustness / 需 root」的補洞,不影響主結論;主矩陣 + 五個 sweep/壓力/churn/cadence 維度的核心 cell 都已 P0。
+
+**C. md 數據同步狀態(只允許 P0 結果)**
+
+- ✅ `overall_results.md` 置頂「P0 master batch 結果」為權威表;舊 P1/P2/P3 維度表已加 **pre-P0** 標註(未刪除,僅標示取代)。
+- ✅ `CONTRADICTIONS.md` #1–16 已逐條標 P0 解決狀態(12 ✅ / 4 🟠)。
+- ✅ `REPORT.md` §5 + §3.4.1、`README.md`、`overall_strategies.md` 指向 P0 表。
+- ⚠️ **待修(已知 data-sync 殘留)**:`figures/README.md` 的**表格 data-source 欄**仍寫舊 pre-P0 CSV(如 `matrix_ram_full_results.csv`、`runs_prefetch_cadence/…`),雖然頂部 banner 已宣告 P0、圖也確實是 P0 重畫 —— 表格欄位待改成對應的 `p0_runs*/`。
+- ⏳ **完全收尾**:把 ✅ 條的舊 P1/P2/P3 表數字實際刪除/重算(目前 pre-P0 標註 + P0 表置頂),以及 🟠(#3/#4/#5/#12)的 prose 算術用 P0 數字重寫。
+
+### §3.9 `static_experiment/` —— 獨立框架,**不算 P0 pipeline**
+
+`static_experiment/`(`orchestrator.py`、`configs/*.json`、自有 `tools/bin/benchmark_harness`)是另一套較正式的 config 驅動實驗框架,**與本研究的 P0 pipeline 分離**:
+
+| 面向 | 本研究 P0 (`run_p0.py`) | `static_experiment/` |
+|---|---|---|
+| harness | `benchmark_harness/`(含 `--verify-hotset`/`--readonly`/`--require-read-first`/`--cpu`/`--warm-cpu-ms`)| `static_experiment/tools/`(**皆無**;`--cold-advice none` + drop-caches)|
+| 冷清驗證 | `cold_pct`/`delivery_pct` 兩道 mincore,>1% 剔除 | 無 in-harness 殘留驗證 |
+| 策略名 | layers_N / 2d / 2e_K / 2f_slru | range_interior / offset_topk_interior / residency_topk |
+| workload | A/B/C/Z | read/scan × uniform/zipf × full/window/tail |
+| 跑況 | 見 §3.8 | 只跑過 `smoke`/`smoke-scan`;`formal-experiment.json` **未跑**(且其 `workloads.types` 含空字串 `""`、會 preflight fail)|
+| 結果進 md? | 是(P0 為權威)| **否**——不混入 P0 結果 |
+
+**結論**:`formal-experiment.json` 的大矩陣**不是 P0 的待跑項**,因為它走不同 harness/紀律。若日後要把它納入 P0,需先把 static harness 補上 P0 verify/hardening(與主 harness 對齊)。在那之前,它的數字不得進本研究 md(維持「只允許 P0 結果」)。
 
 ---
 
