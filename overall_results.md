@@ -80,9 +80,10 @@
 > - **#10 / #11 / #13 數字精度漂移**：DB 總 page 數 26,331 vs 25,613（後者疑筆
 >   誤）；2f prefetch 開銷 7,255/7,478/7,478/7,614 µs；churn 後 C × layers_92
 >   改善 -51%/-54%/-55.2%/-58%。**建議修法**：用 P0 重跑 + 加 reps 數壓低噪音。
-> - **#12 RAM-pressure 比例方向算反**：「20M ≪ working set ~16MB」（20 > 16，
->   方向反）vs REPORT「20M ≈ 1/5 working set」（暗示 ~100 MB）。**建議修法**：
->   重算 working set size 真實值並統一表述。
+> - **#12 RAM-pressure 比例方向** ✅ **已解(2026-06-23, P0)**：resident working set
+>   (2f hotset ~4.4k page ≈ **17 MB**)其實**略小於** 20M cap,所以 hotset 幾乎塞得下、
+>   驅逐壓力小 → P0 fig 06 量到「20M/不限」比值**近 1.0**(RAM 壓力幾乎不影響首查)。
+>   舊「20M ≪ 16MB」方向敘述作廢;以 P0 [`p0_runs_ram20m/`](p0_runs_ram20m/summary_p0.csv) 為準。
 > - **#24 結構性根因**：「cold-start 機制不統一、卻說一致可比」——本 banner
 >   已修正，但所有 cell 數字仍需 P0 重跑後才能去掉「跨表不可比」caveat。
 >

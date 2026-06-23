@@ -18,7 +18,7 @@
 
 > **2026-06-22 P0 更新**:P0 pipeline(`run_p0.py` + `p0_env.sh` + harness `--verify-hotset`)上線並通過審查,**流程根因已從工具面堵住**:#24(機制不統一)→ 每 cell 同一條全機 `drop-caches` + 同一個 `warmer` 交付引擎;#27(步驟序)→ harness 序固定 `open/prepare(before-cold) → drop-caches → verify cold_pct → prefetch → verify delivery_pct → 首查`,`cold_pct>1%` 自動剔除。另補 **baseline(無 prefetch)臂**,improvement-% 才有分母。
 >
-> **2026-06-22(第二輪)P0 master batch 跑完 → 數據矛盾 #1–#16 解決狀態見[下方專節](#資料矛盾-116--p0-解決狀態2026-06-22)**:全 strategy×workload×layout 矩陣 + N/K-sweep + RAM + churn + cadence 都用 P0 重跑(全 cell `cold_pct`=0),每個 cell 現有**單一權威值**(`p0_runs*/summary_p0.csv`、`overall_results.md`「P0 master batch 結果」)。**12 條已解(✅,單一權威值取代多個衝突數字)**;**4 條(#3/#4/#5/#12)資料源已解但舊 prose 的算術/方向錯誤須改用 P0 數字重寫才完全 close(🟠)**。
+> **2026-06-22(第二輪)P0 master batch 跑完 → 數據矛盾 #1–#16 解決狀態見[下方專節](#資料矛盾-116--p0-解決狀態2026-06-22)**:全 strategy×workload×layout 矩陣 + N/K-sweep + RAM + churn + cadence 都用 P0 重跑(全 cell `cold_pct`=0),每個 cell 現有**單一權威值**(`p0_runs*/summary_p0.csv`、`overall_results.md`「P0 master batch 結果」)。**16 條全部已解(✅)** —— 12 條由單一 P0 權威值取代多個衝突數字;#3/#4/#5/#12 的舊 prose(Abstract/§5.2/§8/cgroup)已於 2026-06-23 用 P0 數字重寫。
 
 ---
 
@@ -65,22 +65,25 @@ P0 master batch 跑完後,每個 (workload,db,strategy) 現有**單一權威值*
 |---|---|---|
 | 1 | ✅ | A baseline first-q(async,n=10):**orig 496.86 / vacuum 696.87 / ta 651.69 µs**。舊 ~10 個值來自混 pipeline,全由 P0 單值取代。 |
 | 2 | ✅ | A/orig **layers_5 = 349.61 µs = −30%** vs baseline 496.86。舊 5 種 % 作廢。 |
-| 3 | 🟠 | §8「318→127 −69%」整組舊數字作廢(P0:結構式最佳 layers_5 −30%、2f first-q −79% 但 e2e 出局)。**舊 §8 prose 須用 P0 數字重寫**,否則算術錯誤殘留。 |
-| 4 | 🟠 | Abstract 同 #3,須用 P0 數字重寫。 |
-| 5 | 🟠 | §5.2 表 vs 圖2 的 318/404→127 整組作廢;改用 P0(A baseline 496.86)。**舊表/圖說須重寫或刪除**。 |
+| 3 | ✅ | **已重寫(2026-06-23)**:§8 Conclusion 改用 P0——2f first-q −79~90% 但 e2e 出局、結構式 −30~85%、e2e 勝負看 baseline(C 2e_K10 e2e −56%)。舊「318→127 −69%/−68%」整組作廢。 |
+| 4 | ✅ | **已重寫(2026-06-23)**:Abstract + §1 貢獻 C1–C4 全改用 P0 數字(權威表見 §5/overall_results)。 |
+| 5 | ✅ | **已重寫(2026-06-23)**:§5.2 表改為 P0 A/orig(baseline 496.86、layers_5 e2e 607=+22% 更慢…)、圖2 caption 改 P0;揭露「A 上 prefetch e2e 不升反降」。 |
 | 6 | ✅ | A 各表不一 → 單一 P0 值(A/orig baseline 496.86、layers_5 349.61;A/ta layers_5 496.99)。 |
 | 7 | ✅ | 2f「慢幾倍」→ P0 權威 **e2e**:A/orig 2f e2e **7489 µs** vs baseline 497 → **~15× 慢**(first-q −79%,但 ~7.4ms preproc 主導 e2e)。單一值取代 3–30× 各種說法。 |
 | 8 | ✅ | C 上 load-all(layers_92 **635.96**)≈ access(2d **635.31**),both −40%;真正贏家是 **2e_K10 −85%**(C/orig 154.84)。方向釐清。 |
 | 9 | ✅ | C baseline first-q:**orig 1058.09 / vacuum 991.75 / ta 870.95 µs**。舊 671/4918/468… 全由 P0 單值取代。 |
 | 10 | ✅ | **非矛盾**:P0 records 顯示 orig/ta=**26331**、vacuum=**25613**(VACUUM 壓縮後頁數變少)——兩者各自正確、非筆誤。 |
 | 11 | ✅ | 2f preproc 自身:A/orig **preproc_us_median 7381.94 µs**(單一 P0 值,取代 7255/7478…)。 |
-| 12 | 🟠 | RAM-pressure 已 P0 重測(figure 06,比值近 1.0、壓力幾乎不影響首查)。**舊 prose「20M ≪ working set 16MB」方向錯誤須重寫**。 |
+| 12 | ✅ | **已解(2026-06-23)**:overall_results #12 註記改正——resident working set ~17MB **略小於** 20M cap、故 P0 fig 06 比值近 1.0;舊「20M ≪ 16MB」方向敘述作廢。 |
 | 13 | ✅ | churn C×layers_92 → P0 churn(`p0_runs_churn/churn_evolution.csv`,layers_92_static 跨 checkpoint ~290 µs);單一來源取代 −51/−54/−55/−58%。 |
 | 14 | ✅ | 第18維 churn 表 vs 文字 → P0 churn 數據(figure 07/12)為單一來源。 |
 | 15 | ✅ | C **2e_K10 = 154.84 µs = −85%**(C/orig,單一值,取代 −83.9/−88%)。 |
 | 16 | ✅ | 2d on C first-q:**orig 635.31 / vacuum 495.35 / ta 483.16 µs**(各 layout 單一值,取代 −46~48% 各種)。 |
 
-> **完全 close 的剩餘工作**:✅ 條的權威值已存在,但 `overall_results.md`/`REPORT.md §5.x` 等**舊 P1/P2/P3 表的具體數字尚未刪除/重算**(已加 pre-P0 標註 + P0 master 表置頂)。🟠 條(#3/#4/#5/#12)額外需把舊 prose 的算術用 P0 數字重寫。完成這兩步即可把表中對應列的 🔴 全部翻成 ✅。
+> **完全 close 的剩餘工作**:#3/#4/#5/#12 的 🟠 prose **已用 P0 重寫(2026-06-23)**。
+> 唯一剩下的是 `overall_results.md` 的**舊 P1/P2/P3 維度表**(主表～第十八維):**多數維度 P0 未重跑**
+> (P0 只跑 master 6-策略矩陣 + sweep/RAM/churn/cadence),故那些舊數字**無法用 P0 recompute**,
+> 只能「保留並標 pre-P0」(已做:pre-P0 標註 + P0 master 表置頂)或**整段刪除**(會失去實驗紀錄,屬破壞性、待人工決定)。
 
 **Bonus 順手修（程式碼）**：`prefetch_vacuum/src/prefetch.c:116-122` 的 range 模式
 原本用 O(n²) bubble sort，跟做同件事的 `prefetch_layers.c:62` 用 `qsort`
@@ -108,9 +111,9 @@ P0 master batch 跑完後,每個 (workload,db,strategy) 現有**單一權威值*
 **統計(原始審查)**:🔴 硬矛盾 28 條、⚪ 編輯殘留 1 條、🟠 待釐清 1 條、🟡 可調和 6 條。
 
 **P0 後更新(2026-06-22)**:
-- **資料矛盾 #1–16**:**12 條 ✅ 已解**(P0 master batch 單一權威值取代,見[專節](#資料矛盾-116--p0-解決狀態2026-06-22))、**4 條 🟠**(#3/#4/#5/#12,資料源已解、舊 prose 算術待用 P0 數字重寫)。
+- **資料矛盾 #1–16**:**16 條全部 ✅ 已解**(P0 master batch 單一權威值 + #3/#4/#5/#12 prose 已用 P0 重寫,見[專節](#資料矛盾-116--p0-解決狀態2026-06-22))。
 - **流程矛盾**:#24/#25/#26/#27/#28 ✅ 已由 P0 工具解(見主表);**#29(Workload D 標示)仍 🔴**——D 是 churn 產生器、不在 P0 量測範圍,屬純文件標示錯誤,須手改 overall_workloads.md。
-- **唯一仍待動的硬矛盾**:#29(文件標示)+ 把 ✅ 條的舊 P1/P2/P3 表數字實際刪除/重算(目前已 pre-P0 標註、P0 master 表置頂)。
+- **唯一仍待動**:#29(Workload D 文件標示,純手改)+ `overall_results.md` 舊 P1/P2/P3 維度表的去留(多數 P0 未重跑、無法 recompute → 保留標 pre-P0 或人工決定刪除)。資料矛盾 #1–16 本身已全數 ✅。
 
 **兩個「根因」最該優先處理**:
 
