@@ -4,7 +4,7 @@
 > - [overall_results.md](overall_results.md) — 全 P0 數據（strategy×workload×layout + N/K-sweep + RAM + churn + cadence）
 > - [overall_strategies.md](overall_strategies.md) — 每個strategy的原理
 > - [overall_workloads.md](overall_workloads.md) — Workload 定義
-> - [README.md](README.md) — 研究故事 (chronological)
+> - [README.md](README.md) — 完整研究歷程 (chronological)
 > - [calibration/](calibration/) — Preprocessing-time measurement
 
 ---
@@ -12,8 +12,8 @@
 ## Abstract
 
 **摘要**——隨著 SQLite 廣泛deployment於行動裝置、IoT 與桌面應用，其 cold-start read效能逐漸成為使用者體驗的關鍵bottleneck，並衍生出兩個尚未被同時解決的core
-挑戰：**prefetch 目標選擇（targeting）** 與 **preprocessing cost核算（cost-accounting）**。就 targeting 而言，作業系統與應用層皆缺乏對 SQLite B+tree internal page-type structure的visibility，盲目 prefetch 會將 I/O 浪費在大量無關 page 上，無法精準命中真正dominate cold-start cost 的少數關鍵 page；就 cost-accounting 而言，既有 prefetch strategy多僅優化 first-query latency，未將 prefetch 本身的 preprocessing overhead納入 end-to-end cold-start real cost evaluation，造成「first-query improvement幅度」與「real cold-start cost」之間的系統性misleading。SQLite 因其輕量embedded design、零組態deployment與廣泛 SQL compatibility，是此topic最具代表性的研究subject，然而現有 SQLite 相關literature多聚焦於writepath（fsync、WAL、journal mode），對 cold-start readpath的系統性分析較少；現有跨領域工作中，作業系統層的 readahead 僅依賴 sequential pattern detection、無法針對 page-type 做精準預判，DBMS 層的 buffer pool warming 又須侵入式修改 engine、且皆未將 preprocessing 計入real cost。為彌補此 gap，我們提出一套結合 **page-type-aware physical layout reorder** 與 **基於 mincore 的 targeted madvise prefetch** 的兩層 cold-start framework（系統正式命名待定）。在固定的 reference DB（**600k rows、102 MB**）上，我們依 SQLite B+tree role（interior/leaf）對 page 做精確classification，僅針對dominate cold-start cost 的 **0.35%（92個 interior page、共 368 KB）** 進行 prefetch，避免盲目 preload 帶來的 I/O 與 page reclaim 浪費，且整套design無需修改 SQLite internal。據我們所知，**我們的研究** 是第一個在 **empty OS page cache cold-start scenario下**（區別於 Yi et al. [2026] 處理的 hotspot-shift buffer cold-start），將 prefetch preprocessing overhead明確納入 end-to-end evaluation的 SQLite prefetch
-研究（以下numbers全部來自 P0 master batch,authoritative表見 §5 / [overall_results.md](overall_results.md);全 cell `cold_pct`=0）：experiment顯示既有 cache-dump strategy（2f_slru,load整個 resident working set）雖能把 first-query latency 壓到最低（**−79 ~ −90%**,A/orig 497→107 µs、C/orig 1058→102 µs），但其 **~6–7.5 ms 的 preprocessing overhead** 反讓 end-to-end cold start **慢上一個order of magnitude**——這個 trade-off 在既有 prefetch literature中長期被忽略。相對地,**page-type-aware 的structural / access-pattern prefetch（layers_5 / 2e_K10）** 以**極少 syscall** 取得 first-query **−30 ~ −85%**(file-tail uniform workload 上 access-pattern 與blind-load全部 interior 相當,皆約 **−47%**);關鍵在於 **end-to-end 的勝負取決於 baseline 夠不夠慢**:慢 workload（C, baseline ~1058 µs）上 2e_K10 達 **e2e −56%（462 µs）**,而快 workload（A, baseline ~497 µs）上 warmer 的 preprocessing 反而蓋過 first-query 的省時。三條 robustness 軸——**50k write churn**(static t=0 hotset 不decay)、**cgroup `MemoryMax=20M`** memory壓縮(20M/unlimited ratio近 1.0)、與多-process **cadence re-warm**——下conclusion皆穩定。
+挑戰：**prefetch 目標選擇（targeting）** 與 **preprocessing cost核算（cost-accounting）**。就 targeting 而言，作業系統與應用層皆缺乏對 SQLite B+tree internal page-type structure的visibility，盲目 prefetch 會將 I/O 浪費在大量無關 page 上，無法精準命中真正dominate cold-start cost 的少數關鍵 page；就 cost-accounting 而言，既有 prefetch strategy多僅優化 first-query latency，未將 prefetch 本身的 preprocessing overhead納入 end-to-end cold-start real cost evaluation，造成「first-query improvement幅度」與「real cold-start cost」之間的系統性misleading。SQLite 因其輕量embedded design、零組態deployment與廣泛 SQL compatibility，是此topic最具代表性的研究subject，然而現有 SQLite 相關literature多聚焦於writepath（fsync、WAL、journal mode），對 cold-start readpath的系統性分析較少；現有跨領域工作中，作業系統層的 readahead 僅依賴 sequential pattern detection、無法針對 page-type 做精準預判，DBMS 層的 buffer pool warming 又須侵入式修改 engine、且皆未將 preprocessing 計入real cost。為彌補此 gap，我們提出一套結合 **page-type-aware physical layout reorder** 與 **基於 mincore 的 targeted madvise prefetch** 的兩層 cold-start framework（下稱本framework）。在固定的 reference DB（**600k rows、102 MB**）上，我們依 SQLite B+tree role（interior/leaf）對 page 做精確classification，僅針對dominate cold-start cost 的 **0.35%（92個 interior page、共 368 KB）** 進行 prefetch，避免盲目 preload 帶來的 I/O 與 page reclaim 浪費，且整套design無需修改 SQLite internal。據我們所知，**本研究** 是第一個在 **empty OS page cache cold-start scenario下**（區別於 Yi et al. [2026] 處理的 hotspot-shift buffer cold-start），將 prefetch preprocessing overhead明確納入 end-to-end evaluation的 SQLite prefetch
+研究（以下numbers全部來自 P0 master batch,authoritative表見 §5 / [overall_results.md](overall_results.md);全 cell `cold_pct`=0）：experiment顯示既有 cache-dump strategy（2f_slru,load整個 resident working set）雖能把 first-query latency 降到最低（**−79 ~ −90%**,A/orig 497→107 µs、C/orig 1058→102 µs），但其 **~6–7.5 ms 的 preprocessing overhead** 反讓 end-to-end cold start **慢上一個order of magnitude**——這個 trade-off 在既有 prefetch literature中長期被忽略。相對地,**page-type-aware 的structural / access-pattern prefetch（layers_5 / 2e_K10）** 以**極少 syscall** 取得 first-query **−30 ~ −85%**(file-tail uniform workload 上 access-pattern 與blind-load全部 interior 相當,皆約 **−47%**);關鍵在於 **end-to-end 取決於 baseline 有多慢**:慢 workload（C, baseline ~1058 µs）上 2e_K10 達 **e2e −56%（462 µs）**,而快 workload（A, baseline ~497 µs）上 warmer 的 preprocessing 反而蓋過 first-query 省下的時間。三條 robustness 軸——**50k write churn**(static t=0 hotset 不decay)、**cgroup `MemoryMax=20M`** memory壓縮(20M/unlimited ratio近 1.0)、與多-process **cadence re-warm**——下conclusion皆穩定。
 
 **Index Terms**——SQLite, Cold-start latency, Prefetch, Page-type aware
 
@@ -47,7 +47,7 @@ cold first query baseline 落在 **~497–1058 µs** 區間（A 497 / B 725 / C 
 368 KB），卻負擔所有 query path traversal cost。若能在 first query 之前將
 這 368 KB 的關鍵 page 主動load OS page cache，cold-start 的 random I/O 即
 可被 amortize 至 sequential prefetch 操作。據此，我們提出一套針對 SQLite
-cold-start 的**兩層 prefetch framework**（系統正式命名待定）：第一層為
+cold-start 的**兩層 prefetch framework**（下稱本framework）：第一層為
 **page-type-aware physical layout reorder**——在 binary 層級重寫 SQLite file、
 將 92 個 interior page 集中至file head連續 slot 並 patch 所有 page-number
 reference（跨頁 pointer、`sqlite_master.rootpage`、freelist）；第二層為
@@ -66,16 +66,16 @@ classification 僅對dominate cold-start cost 的 interior 集合下達
 - **(C1) Type-aware layout rewriter**：實作並validation在 binary 層級reorder SQLite
   file 並修補所有 page-number reference 的可行性與正確性。P0 下structural
   prefetch(layers_5)在 A 取得 **first-query −30%**(497→350 µs);**但 e2e
-  的勝負取決於 baseline**——快 workload(A)上 warmer preprocessing 蓋過省時、
-  e2e 不升反降,e2e 真正贏在慢 workload(見 C3/C2)。
+  取決於 baseline**——快 workload(A)上 warmer preprocessing 蓋過省下的時間、
+  e2e 反而變差,e2e 真正有改善的是慢 workload(見 C3/C2)。
 - **(C2) Access-pattern frugality**：基於 `mincore()` snapshot 的
   access-history prefetch(2e_K10)用**極少 syscall** 取得 first-query
   **−30 ~ −85%**;在 file-tail uniform(B)上與blind-load全部 interior 相當(皆約
   **−47%**);在慢 workload **C 上 2e_K10 達 first-query −85%、e2e −56%(462 µs)**——
-  顯示「access-pattern」在 e2e 上最划算。
+  顯示「access-pattern」在 e2e 上最有效益。
 - **(C3) Preprocessing cost-accounting framework**：據我們所知，首次將 prefetch
   preprocessing 顯式納入 SQLite cold-start end-to-end evaluation（區別於
-  [Yi+26]）。P0 證實既有 cache-dump strategy(2f_slru)雖把 first-query 壓到最低
+  [Yi+26]）。P0 證實既有 cache-dump strategy(2f_slru)雖把 first-query 降到最低
   (**−79 ~ −90%**),但其 **~6–7.5 ms preprocessing** 反讓 end-to-end cold
   start **慢一個order of magnitude**——此 trade-off 在既有 prefetch literature中長期被忽略。
 - **(C4) Robustness 三維validation**：50k write churn 後 static t=0 hotset 不decay
@@ -133,11 +133,11 @@ cache 皆空——這在 benchmark 環境每 cell reproducible是不可行的。
 
 | 層級 | measurement時狀態 | 對照嚴格 cold-start |
 |---|---|---|
-| **OS page cache (DB 內容)** | ✅ 透過 `/usr/local/sbin/drop-caches` setuid wrapper 全機 drop (`sync; echo 3 > /proc/sys/vm/drop_caches`)，並以 harness built-in `--verify-hotset`（`mincore`，emit `verify_cold_pct`）validation ≈0% resident | 完全空 ✓ |
-| **磁碟 I/O** | ✅ `majflt > 0` validation確實到 disk | 必須 physical I/O ✓ |
-| **SQLite handle / pager** | ⚠️ 預先開好（`PRAGMA cache_size=0`、statement 已 prepare） | 從未 open |
-| **`mmap()` 區域** | ⚠️ 預先建立（mapping 在、page 未 fault） | 從未呼叫 |
-| **CPU 指令 cache / TLB / branch predictor** | ⚠️ Warm（harness 程式碼跑過多輪） | 全部冷 |
+| **OS page cache (DB 內容)** | 透過 `/usr/local/sbin/drop-caches` setuid wrapper 全機 drop (`sync; echo 3 > /proc/sys/vm/drop_caches`)，並以 harness built-in `--verify-hotset`（`mincore`，emit `verify_cold_pct`）validation ≈0% resident | 完全空 |
+| **磁碟 I/O** | `majflt > 0` validation確實到 disk | 必須 physical I/O |
+| **SQLite handle / pager** | 預先開好（`PRAGMA cache_size=0`、statement 已 prepare） | 從未 open |
+| **`mmap()` 區域** | 預先建立（mapping 在、page 未 fault） | 從未呼叫 |
+| **CPU 指令 cache / TLB / branch predictor** | Warm（harness 程式碼跑過多輪） | 全部冷 |
 
 「warm process」的三項刻意妥協服務三個目的：(1) **更貼近實際deployment**——
 mobile app / server worker 的 SQLite 多半已 load、schema 已 introspect，
@@ -177,7 +177,7 @@ offsets——也因此只能做 sequential pattern detection、無法 page-type 
 
 候選 reading：
 - Linux kernel mm `readahead.c` design notes
-- "Anticipatory I/O Scheduling" (USENIX ATC '04, Iyer & Druschel) ← 經典
+- "Anticipatory I/O Scheduling" (USENIX ATC '04, Iyer & Druschel) （經典文獻）
 - "I/O Behavior of NAND Flash" 系列（NVMe readahead、SSD pre-read）
 
 **跟我們的差別**：OS readahead 是 **sequential pattern detection**（Smith
@@ -408,7 +408,7 @@ file head前 400 KB，可被 sequential prefetch 一次涵蓋。*
 | 名稱 | 特性 | 典型deployment scenario |
 |---|---|---|
 | **A** | Zipfian point read（集中查少數熱門資料）| App 首頁、常開的聯絡人 |
-| **B** | Uniform random point read（平均亂查）| 隨機抽樣、爬蟲 |
+| **B** | Uniform random point read（uniform 隨機讀）| 隨機抽樣、爬蟲 |
 | **C** | High-key uniform read（只查最新加入的file tail資料）| 剛收到的訊息、剛拍的照片 |
 | **D** | Write-heavy churn generator | 模擬 DB 被持續 write（§6.2.1 churn experiment）|
 
@@ -475,7 +475,7 @@ calibration（[calibration/prefetch_time_summary.csv](calibration/prefetch_time_
 > `first_query_us` order of magnitude接近（多數 prefetch strategy < 100 µs）時，`cold-start_e2e`
 > 約等於 `first_query_us`；但當strategy preprocessing overhead大（如 2f SLRU 的
 > `prefetch_us` 達 ms magnitude）時，`cold-start_e2e` 反而被 `prefetch_us` dominate，
-> 揭露「first-q 看起來壓最低 ≠ end-to-end real最快」的 trade-off。具體quantify
+> 揭露「first-q 看似最低 ≠ end-to-end real最快」的 trade-off。具體quantify
 > 見 §5.5。
 
 #### 3.4.1 measurement環境與 hotset freeze（reproducibility）
@@ -539,11 +539,11 @@ strategy**（§5 的deployment comparison一律用 async 的 end-to-end，pread 
 參數**——它同時決定 async 的封頂、以及「冷 fault 順帶 readahead」帶來的免費 prefetch。本研究
 一律 **釘在 128 KB（裝置預設，外部效度最高）並逐 run 記錄**;所有conclusion均在 ra=128 下成立。
 
-> **三句話 headline（§5 以此framework陳述）：**
+> **重點摘要（§5 以此framework陳述）：**
 >
 > 1. **可達upper bound（oracle）**：`fq_pread`。
 > 2. **實務可deployment best**：async，以 end-to-end `e2e = prefetch_us + fq_async` comparison（layers_5
->    勝；2f SLRU 因 ms magnitude preprocessing 出局，見 §5.5）。
+>    勝；2f SLRU 因 ms magnitude preprocessing 不具優勢，見 §5.5）。
 > 3. **delivery 代價**：`fq_async − fq_pread`，即 async 作為 hint 相對 oracle 的漏載損失。
 
 ---
@@ -588,7 +588,7 @@ hint 給 OS。差別在「指定哪些 page」：
     「B+tree 上 N 層」僅在 1c (type-aware) 成立**（因為 1c 把所有 interior
     集中到 file 頭）；在 1a/1b 是「file中最早出現的 N 個 interior」，跟
     B+tree tree depth無 1-to-1 對應。P0 下 A/orig 上 **N≥5 即進 plateau ~−30% first-q**
-    (N=1 反而 +31% 更慢);C 則要 N=92(見 §5.3)。
+    (N=1 反而 +31% 較慢);C 則要 N=92(見 §5.3)。
 - **Access-pattern-based**（access-pattern = 跑一次 workload 後用 `mincore()` dump
   哪些 page resident）
   - **2d Access-pattern interior-only**：只 prefetch resident 的 interior。
@@ -615,7 +615,7 @@ prefetch cost」的關鍵。詳見 [multiprocess/MULTIPROCESS_MMAP.md](multiproc
 
 ## 5. Experiment and Evaluation
 
-> **📊 P0 master batch（authoritative）**：本章全部numbers為 P0 pipeline rerun(`run_p0.py`,全 cell `cold_pct`=0),authoritative表見 [overall_results.md](overall_results.md)、原始檔 [`p0_runs/summary_p0.csv`](p0_runs/summary_p0.csv)。core:first-query 最低為 **2f_slru(−79~90%)**,但其 preproc 使 `e2e` 出局;**e2e 的勝負取決於 baseline 夠不夠慢**——快 workload(A)上 prefetch e2e 不升反降,慢 workload(C)上 **2e_K10 e2e −56%(462µs)**。
+> **P0 master batch（authoritative）**：本章全部numbers為 P0 pipeline rerun(`run_p0.py`,全 cell `cold_pct`=0),authoritative表見 [overall_results.md](overall_results.md)、原始檔 [`p0_runs/summary_p0.csv`](p0_runs/summary_p0.csv)。core:first-query 最低為 **2f_slru(−79~90%)**,但其 preproc 使 `e2e` 不具優勢;**e2e 取決於 baseline 有多慢**——快 workload(A)上 prefetch e2e 反而變差,慢 workload(C)上 **2e_K10 e2e −56%(462µs)**。
 
 ### 5.1 Per-workload best methods (overview)
 
@@ -624,23 +624,23 @@ P0 下(layout orig,async first-query;baseline A 497 / B 725 / C 1058 µs),每個
 
 | workload | first-q 最低 | first-q | e2e | end-to-end best(可deployment) | e2e | first-q improvement |
 |---|---|---:|---:|---|---:|---:|
-| **A** (Zipfian) | 2f_slru | **107 µs (−79%)** | 7489 µs ⚠️ | **baseline（不 prefetch）** | 497 µs | 任何 prefetch e2e 皆更慢 |
-| **B** (uniform) | 2f_slru | **105 µs (−85%)** | 7572 µs ⚠️ | layers_5 / 2d（structural)| 680–698 µs（**−4~6%**) | layers_5 −47% |
-| **C** (churn-heavy) | 2f_slru | **102 µs (−90%)** | 1179 µs | **2e_K10（access-pattern)** | **462 µs（−56%)** ✅ | 2e_K10 −85% |
+| **A** (Zipfian) | 2f_slru | **107 µs (−79%)** | 7489 µs | **baseline（不 prefetch）** | 497 µs | 任何 prefetch e2e 皆較慢 |
+| **B** (uniform) | 2f_slru | **105 µs (−85%)** | 7572 µs | layers_5 / 2d（structural)| 680–698 µs（**−4~6%**) | layers_5 −47% |
+| **C** (churn-heavy) | 2f_slru | **102 µs (−90%)** | 1179 µs | **2e_K10（access-pattern)** | **462 µs（−56%)** | 2e_K10 −85% |
 
-> ⚠️ **重要**:「抄上次 cache」(2f SLRU) first-q 三 workload 都最低(−79~90%),但
+> **註**:「重載前次 cache」(2f SLRU) first-q 三 workload 都最低(−79~90%),但
 > **preprocessing 自己花 ~0.9–7.5 ms**(視 working set 大小),**real cold start =
 > preprocessing + first-q,因此 e2e 反而比 baseline 慢**(A +1407% / B +944% / C +11%)。
 > 詳見 §5.5。
 >
-> P0 的可deployment贏家依 baseline 速度而定:**A(快)上沒有 prefetch strategy的 e2e 贏得了 baseline**
+> P0 的可deployment的最佳strategy依 baseline 速度而定:**A(快)上沒有 prefetch strategy的 e2e 優於 baseline**
 > (warmer startup ~250µs 起就 > 省下的時間);**C(慢)上「access-pattern」2e_K10 以 ~300µs preproc
-> 換到 e2e −56%**,是真正划算的。
+> 換到 e2e −56%**,是真正有效益的。
 
 ![7 種strategy × 3 種 layout 跨 A/B/C 的 first query latency comparison](figures/out/05_strategy_comparison.png)
 
 *圖 5(P0):每個 workload × layout 下各strategy的 async first-query(越短越好)。
-**沒有萬用解**——first-q 上 2f 通殺,但看 e2e 時只有慢 workload(C)的 access-pattern(2e_K10)真正划算。*
+**沒有萬用解**——first-q 上 2f 全部最低,但看 e2e 時只有慢 workload(C)的 access-pattern(2e_K10)真正有效益。*
 
 ### 5.2 Best combination on Workload A
 
@@ -651,15 +651,15 @@ Workload A、layout orig（first-query / preproc=warmer wall-clock / end-to-end 
 | 做法 | First query | Preproc(warmer) | End-to-end | e2e vs baseline |
 |---|---:|---:|---:|---:|
 | baseline（不 prefetch）| 496.86 | 0 | **496.86** | — |
-| layers_5 | 349.61 | 257.82 | 606.89 | **+22%(更慢)** |
-| 2e_K10 | 337.32 | 287.85 | 626.31 | +26%(更慢) |
-| 2f_slru | 106.76 | 7381.94 | 7489.41 | +1408%(更慢) |
+| layers_5 | 349.61 | 257.82 | 606.89 | **+22%(較慢)** |
+| 2e_K10 | 337.32 | 287.85 | 626.31 | +26%(較慢) |
+| 2f_slru | 106.76 | 7381.94 | 7489.41 | +1408%(較慢) |
 
-> **P0 關鍵修正**:在 A 這種 baseline 本來就快(~497µs)的 cell,**warmer 的 preprocessing(含 process startup,~250µs 起跳)反而 > first-query 省下的時間 → e2e 比 baseline 還慢**。first-query improvement(layers_5 −30%、2f −79%)是真的,但 **e2e 的勝負要看 baseline 夠不夠慢**:e2e 真正贏是在慢 workload(C:baseline 1058µs → 2e_K10 e2e 462µs = **−56%**)。這推翻舊 P1「A 上 layout+layers_5 e2e −60%」的說法。
+> **P0 關鍵修正**:在 A 這種 baseline 本來就快(~497µs)的 cell,**warmer 的 preprocessing(含 process startup,~250µs 以上)反而 > first-query 省下的時間 → e2e 比 baseline 還慢**。first-query improvement(layers_5 −30%、2f −79%)是真的,但 **e2e 的結果要看 baseline 有多慢**:e2e 真正有改善是在慢 workload(C:baseline 1058µs → 2e_K10 e2e 462µs = **−56%**)。這推翻舊 P1「A 上 layout+layers_5 e2e −60%」的說法。
 
 ![Workload A 上 layout × strategy 的效果](figures/out/02_layout_effect.png)
 
-*圖 2(P0):Workload A、async first-query,各 layout 的 baseline 與strategy(2f ≈ −79% first-q)。注意 first-query 與 end-to-end 的勝負不同(見上表)。*
+*圖 2(P0):Workload A、async first-query,各 layout 的 baseline 與strategy(2f ≈ −79% first-q)。注意 first-query 與 end-to-end 的結果不同(見上表)。*
 
 ### 5.3 Workload-dependent benefit ceiling
 
@@ -668,7 +668,7 @@ P0 first-query improvement上限(orig,vs baseline):
 | scenario | 只載 interior(layers/2d) | + 熱 leaves / 全 working set | 為什麼 |
 |---|---:|---:|---|
 | **A**（熱門集中）| −30~33% | 2e_K500 −69% / 2f −79% | hot leaves 多半已暖,interior-only 即有中段效益 |
-| **B**（平均亂查）| −47% | 2f −85% | 每筆打 cold leaf,interior-only 卡在 −47%,只有整份 dump 壓得下 |
+| **B**（uniform 隨機讀）| −47% | 2f −85% | 每筆打 cold leaf,interior-only 卡在 −47%,只有整份 dump 才壓得低 |
 | **C**（查file tail新資料）| −40% | **2e_K10 −85%** / 2f −90% | 每筆 cold leaf,但**「access-pattern」加載 top-K 熱 leaf 可突破**到 −85% |
 
 ![A/B/C 三 workload 在 clean DB 上的 layers_N plateau（P0）](figures/out/04_nsweep_plateau.png)
@@ -692,32 +692,32 @@ layout orig(baseline 1058 µs;preproc = warmer wall-clock,含 process startup):
 |---|---:|---:|---:|---:|---:|
 | 載全部 interior（layers_92）| 636 µs | −40% | +433 µs | 1068 µs | +1% |
 | 只載真正用過的 interior（2d）| 635 µs | −40% | +299 µs | 930 µs | −12% |
-| **+ 最熱的 10 個 leaf node（2e_K10）**| **155 µs** | **−85%** | +308 µs | **462 µs** | **−56%** ← e2e best |
+| **+ 最熱的 10 個 leaf node（2e_K10）**| **155 µs** | **−85%** | +308 µs | **462 µs** | **−56%** (e2e 最佳) |
 
 > P0 關鍵:在 C 上「只載 interior」(2d/layers_92) 只到 first-q −40%、e2e ≈ 打平;
 > **真正解鎖的是加載 top-10 熱 leaf(2e_K10)**——把 first-q 從 635 → 155 µs(−85%)、
 > e2e 462 µs(−56%)。warmer preproc 三者都 ~300–430µs(以 process startup為主、與載幾頁
-> 關係不大),所以勝負由 first-q 決定,而 2e_K10 的少量熱 leaf 是最划算的選擇。
+> 關係不大),所以結果由 first-q 決定,而 2e_K10 的少量熱 leaf 是最有效益的選擇。
 
 ### 5.5 The preprocessing trade-off （本 paper 的core observation）
 
 前面所有 first-q numbers都**只算 SQL 第一筆 query 的時間**——但 prefetch tool
 自己也要時間（叫 OS 預先 load page、發 madvise 之類）。**real cold start =
-preprocessing + first-q**。這個 preprocessing overhead會讓 first-q 看起來很美的
-strategy，整體 cold start 反而更慢。
+preprocessing + first-q**。這個 preprocessing overhead會讓 first-q 看似很好的
+strategy，整體 cold start 反而較慢。
 
-**一張圖看懂兩種觀點的差別**：
+**兩種觀點的視覺對比**：
 
 ![純 first-query latency comparison（preprocessing 沒算進去）](figures/out/13_strategy_firstq_bars.png)
 
-*圖 13(P0)：純 first-query latency（async,log scale）。**2f SLRU first-q 通殺**——
+*圖 13(P0)：純 first-query latency（async,log scale）。**2f SLRU first-q 全部最低**——
 A/B ~105 µs、C ~102 µs(−79~90%),比 baseline 497–1058 µs 短一個order of magnitude。這是 §5.1
-「first-q 最低」欄的視覺版本(但 e2e 另一回事,見圖 14)。*
+「first-q 最低」欄的視覺版本(但 e2e 另有結論,見圖 14)。*
 
 ![End-to-end cold start：preprocessing + first-q stacked，跟 baseline 比](figures/out/14_strategy_endtoend_stacked.png)
 
 *圖 14(P0)：**real的 end-to-end cold start**(stacked:底層 first-q + 黃色斜紋
-preprocessing=warmer wall-clock)。紅虛線 = baseline。**2f SLRU 高高超過紅線**——
+preprocessing=warmer wall-clock)。紅虛線 = baseline。**2f SLRU 明顯超過紅線**——
 A 7489 µs(15× baseline)、B 7572 µs(10×)、C 1179 µs(1.1×)。**在快 workload A 上,
 連 layers_5/2e_K10 的 e2e 也超過紅線**(warmer ~250–390µs preproc > first-q 省的時間);
 **只有慢 workload C 上 2e_K10 e2e(462µs)安全在紅線(1058)下方**。*
@@ -725,16 +725,16 @@ A 7489 µs(15× baseline)、B 7572 µs(10×)、C 1179 µs(1.1×)。**在快 work
 #### 5.5.1 每種strategy的 preprocessing overhead（P0）
 
 P0 的 `preproc_us` = **統一delivery engine `warmer` 的 wall-clock**（含 process fork/exec
-startup,~250 µs 起跳;這是「以standalone warmer process deployment」的real cost)。orig 代表值:
+startup,~250 µs 以上;這是「以standalone warmer process deployment」的real cost)。orig 代表值:
 
 | strategy | 做什麼 | Preproc(warmer wall-clock) | 跟 first-q 比 |
 |---|---|---:|---|
-| **2c layers_5** | prefetch 前 5 個 interior | **~258 µs** | ~與 first-q 同magnitude ⚠️ |
-| **2c layers_92** | prefetch 全部 interior | **~390 µs** | 同magnitude ⚠️ |
-| **2d access-pattern（只 interior）**| access-pattern只載用過的 interior | **~275–300 µs** | 同magnitude ⚠️ |
-| **2e_K10（interior + 10 熱 leaf）**| + 最熱 10 leaf | **~290–310 µs** | 同magnitude ⚠️ |
-| **2e_K500（interior + 500 熱 leaf）**| + 最熱 500 leaf | **~0.7–1.1 ms** | > first-q ⚠️ |
-| **2f SLRU（抄上次 cache）**| 載整份 resident working set(~0.4k–4.4k page)| **~0.9–7.5 ms** | **比 first-q 大一個order of magnitude** ⛔ |
+| **2c layers_5** | prefetch 前 5 個 interior | **~258 µs** | ~與 first-q 同magnitude |
+| **2c layers_92** | prefetch 全部 interior | **~390 µs** | 同magnitude |
+| **2d access-pattern（只 interior）**| access-pattern只載用過的 interior | **~275–300 µs** | 同magnitude |
+| **2e_K10（interior + 10 熱 leaf）**| + 最熱 10 leaf | **~290–310 µs** | 同magnitude |
+| **2e_K500（interior + 500 熱 leaf）**| + 最熱 500 leaf | **~0.7–1.1 ms** | > first-q |
+| **2f SLRU（重載前次 cache）**| 載整份 resident working set(~0.4k–4.4k page)| **~0.9–7.5 ms** | **比 first-q 大一個order of magnitude** |
 
 > **與舊報告的差異**:舊 calibration 量的是「裸 `madvise` syscall」(~1–2 µs);P0 量的是
 > **full warmer process 的 wall-clock**(含 ~250 µs startup)。若把 prefetch **integrate進 app**
@@ -743,28 +743,28 @@ startup,~250 µs 起跳;這是「以standalone warmer process deployment」的re
 
 #### 5.5.2 real cold start 表現（end-to-end,P0）
 
-加上 preprocessing 後,**e2e 的勝負取決於 baseline 夠不夠慢**。對比快(A)與慢(C):
+加上 preprocessing 後,**e2e 取決於 baseline 有多慢**。對比快(A)與慢(C):
 
 | strategy | A/orig e2e (vs base 497) | C/orig e2e (vs base 1058) |
 |---|---:|---:|
 | Baseline | **497** (—) | **1058** (—) |
-| 2c layers_5 | 607 (**+22% 更慢**) | 1322 (+25% 更慢) |
+| 2c layers_5 | 607 (**+22% 較慢**) | 1322 (+25% 較慢) |
 | 2d access-pattern | 610 (+23%) | 930 (**−12%**) |
-| 2e_K10 (+10 leaf) | 626 (+26%) | **462 (−56%)** ✅ |
+| 2e_K10 (+10 leaf) | 626 (+26%) | **462 (−56%)** |
 | 2e_K500 (+500 leaf) | 1225 (+146%) | 864 (−18%) |
-| **2f SLRU** | 7489 (**+1407%**) ⛔ | 1179 (+11%) ⛔ |
+| **2f SLRU** | 7489 (**+1407%**) | 1179 (+11%) |
 
 #### 5.5.3 three-line takeaway（P0）
 
-1. **「抄上次 cache」(2f SLRU) first-q 最低(−79~90%)但 e2e 出局**——其 preprocessing
-   達 ~0.9–7.5 ms,使 e2e 比 baseline 慢(A 15×、B 10×、C 1.1×)。first-q 的漂亮numbers
-   是misleading,real cold start 看 e2e。
+1. **「重載前次 cache」(2f SLRU) first-q 最低(−79~90%)但 e2e 不具優勢**——其 preprocessing
+   達 ~0.9–7.5 ms,使 e2e 比 baseline 慢(A 15×、B 10×、C 1.1×)。first-q 的numbers
+   雖亮眼卻 misleading,real cold start 要看 e2e。
 2. **e2e 是否improvement取決於 baseline 速度**:在快 workload(A ~497 µs)上,**連最便宜的
    2c/2d/2e 的 e2e 都 > baseline**(warmer ~250–400 µs startup > first-q 省下的時間);
    在慢 workload(C ~1058 µs)上,**access-pattern 2e_K10 以 ~300 µs preproc 換到
-   e2e −56%(462 µs)**,是真正划算的贏家。
+   e2e −56%(462 µs)**,是最有效益的選擇。
 3. **若把 prefetch integrate進 app(免去standalone process startup),小 hotset 的 preproc 降回
-   syscall 級、e2e ≈ first-q**——此時 2c/2d/2e 在所有 workload 都划算;deployment形式
+   syscall 級、e2e ≈ first-q**——此時 2c/2d/2e 在所有 workload 都有效益;deployment形式
    (integrate vs standalone warmer)是決定 e2e 的關鍵knob。
 
 > Cadence(圖 8)是同一條 trade-off 的時間版:background warmer 每 cadence 秒re-warm一次。
@@ -785,14 +785,14 @@ startup,~250 µs 起跳;這是「以standalone warmer process deployment」的re
    ~+31%**(warmer/madvise overhead > coverage);B 全 plateau **~−47%**(leaf-fault dominate);
    **C 要 N=92 才到 −40%**(熱 interior 在 file 中段、按 offset 取前 N 選錯頁)。
    沒有「N=5 universal sweet spot」這種單一敘事——best N 跟 layout/workload 綁定。
-2. **沒有通用 best strategy**:first-query 上 2f 通殺(−79~90%),但看 e2e 時要視
+2. **沒有通用 best strategy**:first-query 上 2f 全部最低(−79~90%),但看 e2e 時要視
    baseline 速度與deployment形式(見 #3、§5.5)。
-3. **e2e 的勝負取決於 baseline 速度,不是strategy本身**:在快 workload(A ~497 µs)上,
+3. **e2e 取決於 baseline 速度,不是strategy本身**:在快 workload(A ~497 µs)上,
    warmer 的 ~250–400 µs preprocessing 蓋過 first-query 省下的時間 → **任何
    prefetch 的 e2e 都不優於 baseline**;在慢 workload(C ~1058 µs)上,**access-pattern
    2e_K10 以 ~300 µs preproc 換到 e2e −56%**。type-aware layout 在 P0 下把 A/B 的
-   baseline **推高**(A +31%、B +10%)、C 較快(−18%),不是舊 P1「A −69% 大勝」。
-4. **慢 workload 上「access-pattern + 熱 leaf」最划算**:C 上 interior-only(2d/layers_92)只
+   baseline **推高**(A +31%、B +10%)、C 較快(−18%),不是舊 P1「A −69% 大幅改善」。
+4. **慢 workload 上「access-pattern + 熱 leaf」最有效益**:C 上 interior-only(2d/layers_92)只
    −40% first-q、e2e ≈ 打平;加 top-10 熱 leaf(2e_K10)才解鎖 first-q −85%、e2e −56%。
 
 ### 6.2 Robustness checks
@@ -810,7 +810,7 @@ ck0→ck10 無上升趨勢;三 layout(orig/vacuum/ta)皆然(資料 [`p0_runs_chu
 *（P0:`run_p0_churn.py`——measurement走 run_p0(drop-caches+verify+warmer),churn 用 harness write 模式製造;static t=0 hotset 跨 checkpoint 重用。）*
 
 *圖 7(P0)：DB 被持續 write 後,static t=0 hot pages 在 A/B/C 三種 workload 上都不decay
-(headline panel = layout orig;CSV 另含 vacuum/ta)。C 上 2e_K10_static 跨 11 個 checkpoint
+(主面板 = layout orig;CSV 另含 vacuum/ta)。C 上 2e_K10_static 跨 11 個 checkpoint
 持平 ~82–86 µs;B 上沒有自然熱葉,access-pattern 與structural打平,但同樣不 decay。*
 
 #### 6.2.2 RAM pressure（cgroup MemoryMax=20M）
@@ -838,22 +838,22 @@ pressure 幾乎不影響 first query(working set ~17 MB < 20M cap)。*
 *（P0:`run_p0_cadence.py`——每 probe 做全機 drop-caches + 3s gap(background warmer 以 cadence re-warm)+ harness 量first-query(verify-hotset)。cadence 1s/5s → warm(26/29µs)、30s/never → cold(281/305µs):cadence ≤ gap → warm。）*
 
 *圖 8(P0)：background warmer 每 cadence 秒re-warm、前景每 probe 做全機 drop-caches 後量first-query。
-**Cadence 是個 trade-off knob**：cadence=1s/5s maintain first-q ~26/29 µs、cadence=30s/never
-退回 ~281/305 µs(≈ 沒 prefetch)。要 first-q warm 就 cadence ≤ query 間隔,要省cost就加大
-cadence(代價是 first-q 退回 cold)。依deployment在意哪個目標trade-off。*
+**Cadence 是一個 trade-off 參數**：cadence=1s/5s maintain first-q ~26/29 µs、cadence=30s/never
+退回 ~281/305 µs(≈ 沒 prefetch)。若要維持 first-q warm,cadence 需 ≤ query 間隔;若要節省cost則加大
+cadence(代價是 first-q 退回 cold)。視deployment在意哪個目標而定。*
 
 ### 6.3 Practical recommendations
 
 | scenario | recommendation做法 | First-q improvement | End-to-end（P0,standalone warmer）|
 |---|---|---|---|
-| **慢 workload(查file tail/churn,baseline 高)** | access-pattern:interior + 最熱 ~10 leaf(2e_K10) | **−85%**(C) | **e2e −56%(462µs)** ✅ 真正划算 |
-| 平均亂查(uniform) | structural layers_5 / 2d | −47%(B) | e2e ≈ 打平(−4~6%) |
-| **快 workload(熱門集中,baseline 已快)** | structural layers_5(first-q) | −30%(A) | standalone warmer 下 e2e 不優於 baseline;**要贏 e2e 須把 prefetch integrate進 app**(免 ~250µs startup) |
-| 想要 batch / avg latency | 抄上次 cache(2f SLRU) | −79~90%(first-q) | **e2e 出局**(preproc ~0.9–7.5ms);只給 batch、不給 cold-start critical path |
+| **慢 workload(查file tail/churn,baseline 高)** | access-pattern:interior + 最熱 ~10 leaf(2e_K10) | **−85%**(C) | **e2e −56%(462µs)** 真正有效益 |
+| uniform 隨機讀(uniform) | structural layers_5 / 2d | −47%(B) | e2e ≈ 打平(−4~6%) |
+| **快 workload(熱門集中,baseline 已快)** | structural layers_5(first-q) | −30%(A) | standalone warmer 下 e2e 不優於 baseline;**要改善 e2e 須把 prefetch integrate進 app**(免 ~250µs startup) |
+| Batch / 平均 latency 場景 | 重載前次 cache(2f SLRU) | −79~90%(first-q) | **e2e 不具優勢**(preproc ~0.9–7.5ms);僅適合 batch 場景,不適合 cold-start critical path |
 | 多 process shared DB | shared cache + background warmer,cadence ≤ query 間隔 | cost固定、效益乘 process 數 | cadence=1s maintain first-q ~26µs |
 
-> P0 兩條鐵則:(1)**2f SLRU 的 first-q 最低但 e2e 出局**,不適合 cold-start critical path;
-> (2)**e2e 要贏,要嘛 baseline 夠慢(C 用 2e_K10)、要嘛把 prefetch integrate進 app 免掉 warmer startupcost**。
+> P0 兩條原則:(1)**2f SLRU 的 first-q 最低但 e2e 不具優勢**,不適合 cold-start critical path;
+> (2)**e2e 要改善,或是 baseline 夠慢(C 用 2e_K10),或是把 prefetch integrate進 app 免掉 warmer startupcost**。
 
 ### 6.4 Limitations
 
@@ -872,7 +872,7 @@ cadence(代價是 first-q 退回 cold)。依deployment在意哪個目標trade-of
   e2e conclusion。`read_ahead_kb` 固定 128(主值);{0,512} 掃描需 root、未跑。
 - **Workload coverage**：A/B/C 是合成的三種 access pattern；real world 行為
   可能更複雜（mixed read/write、time-of-day 變化）。new_workloads/ 已準備好
-  600 個額外 workload 待你同學跑validation。
+  600 個額外 workload 留待後續validation。
 - **未測「真正 cold reboot」cold start**：受限於 sudo 權限與機器shared，沒做
   「每筆量都 reboot」的嚴格 cold start。harness `--sqlite-open-timing=after-cold`
   可以模擬部分（重 open SQLite handle）。
@@ -891,10 +891,10 @@ cadence(代價是 first-q 退回 cold)。依deployment在意哪個目標trade-of
 - **Strict cold-start 模式**：跑 `--sqlite-open-timing=after-cold +
   --schema-init-timing=after-cold` 一輪，quantify「warm process cold data」跟
   「full cold」之間的 µs 差距，把 §2.2 的「約 1-3 µs」換成精確numbers。
-- **new_workloads validation**（你同學 A 在做）：600 個額外 workload
+- **new_workloads validation**（後續工作）：600 個額外 workload
   ({read,scan} × {uniform,zipf} × {full,window,tail} × 50 seeds) 跑過後，
   validation §5 conclusion的 robustness。
-- **Independent verification**（你同學 B 在做）：在不同 machine / SSD 上重
+- **Independent verification**（後續工作）：在不同 machine / SSD 上重
   跑關鍵 cell，quantify我們 §6.4 「machine drift」估計的可信度。
 - **NVMe SSD page-aware GC 影響**：long-term 跑 large churn (multi-million
   ops)，看 SSD internal GC 對 interior page layout 的影響。
@@ -919,14 +919,14 @@ SQLite cold start 後 first query 很慢，因為要先從 disk 讀進關鍵的 
 page**。我們用 **prefetch（提前 load）** 把它們先放進 memory。**P0 rerun conclusion**
 (authoritative numbers見 §5 / [overall_results.md P0 master 表](overall_results.md)):first-query
 最低是載整個 working set 的 **2f_slru(−79 ~ −90%)**,structural **layers_5 / 2e_K10**
-用極少 syscall 取得 first-query −30 ~ −85%;但 **end-to-end 的勝負取決於 baseline
-夠不夠慢**——在慢 workload(C, baseline ~1058µs)上 **2e_K10 e2e −56%(462µs)**、
-2f 因 ~7.5ms preproc e2e 出局;在快 workload(A, baseline ~497µs)上 warmer 的
-preprocessing 反而蓋過 first-query 的省時、e2e 不升反降。這些結果在 50k write
+用極少 syscall 取得 first-query −30 ~ −85%;但 **end-to-end 取決於 baseline
+有多慢**——在慢 workload(C, baseline ~1058µs)上 **2e_K10 e2e −56%(462µs)**、
+2f 因 ~7.5ms preproc e2e 不具優勢;在快 workload(A, baseline ~497µs)上 warmer 的
+preprocessing 反而蓋過 first-query 省下的時間、e2e 反而變差。這些結果在 50k write
 churn、cgroup `MemoryMax=20M` memory pressure、與 cadence re-warm三條 robustness 軸下穩定
 (全 P0 cell `cold_pct`=0)。
 
-更重要的observation：**「抄上次 cache」(2f SLRU) first-q 看起來最低(−79~90%)是misleading**——
+更重要的observation：**「重載前次 cache」(2f SLRU) first-q 看似最低(−79~90%)是misleading**——
 其 preprocessing ~0.9–7.5 ms 比 first-q(~105 µs)大一個order of magnitude,**real e2e cold start
 反而比 baseline 慢**(A 15×、B 10×、C 1.1×)。2f 的價值在「跑full段」的 avg latency,
 不在第一筆。這個 first-q vs e2e 的 trade-off 在 prefetch literature中很少被明說。
@@ -942,7 +942,7 @@ churn、cgroup `MemoryMax=20M` memory pressure、與 cadence re-warm三條 robus
 | 全 P0 數據（strategy×workload×layout + N/K-sweep + RAM + churn + cadence）| [overall_results.md](overall_results.md) |
 | 每個strategy的原理與狀態 | [overall_strategies.md](overall_strategies.md) |
 | 四種 workload 的定義 | [overall_workloads.md](overall_workloads.md) |
-| full研究故事（按週）| [README.md](README.md) |
+| 完整研究歷程（chronological）| [README.md](README.md) |
 | Preprocessing time calibration | [calibration/](calibration/) |
 | Type-aware layout rewriter source | [layout_rewriter/](layout_rewriter/) |
 | Benchmark harness source | [benchmark_harness/](benchmark_harness/) |
