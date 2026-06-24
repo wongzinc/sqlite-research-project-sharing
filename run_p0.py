@@ -493,9 +493,14 @@ def regen_hotsets(args):
 
     # also freeze the upstream inputs that deterministically generate the structure-path
     # (layers_*) hotsets and feed 2e/2d: classify CSVs + workload files (threats audit gap).
-    extra = [resolve_pointer(CLASSIFY[ly]) for ly in layouts]
-    extra += [resolve_pointer(WORKLOADS[w]) for w in wls]
-    _write_freeze(results, env_line, args, extra_files=extra)
+    # --no-freeze skips this so a supplementary regen (e.g. one extra workload) does not
+    # clobber the master A/B/C freeze manifest.
+    if not getattr(args, "no_freeze", False):
+        extra = [resolve_pointer(CLASSIFY[ly]) for ly in layouts]
+        extra += [resolve_pointer(WORKLOADS[w]) for w in wls]
+        _write_freeze(results, env_line, args, extra_files=extra)
+    else:
+        sys.stderr.write("regen: --no-freeze -> freeze manifest left unchanged\n")
 
     print("\n=== regen summary (old -> new resident/marked counts) ===")
     print(f"{'cell':22} {'file':32} {'old':>6} {'new':>6}")
@@ -580,6 +585,7 @@ def main():
     ap.add_argument("--regen-hotsets", action="store_true",
                     help="P0-native regen of 2d/2e/2f residency inputs (F7); dry-run unless --yes")
     ap.add_argument("--regen-k", default="10,500", help="K values for 2e regen (matrix uses 10,500)")
+    ap.add_argument("--no-freeze", action="store_true", help="--regen-hotsets: don't rewrite the freeze manifest (supplementary regen)")
     ap.add_argument("--yes", action="store_true",
                     help="actually perform --regen-hotsets (full-machine drop-caches per cell)")
     ap.add_argument("--verify-frozen", action="store_true",

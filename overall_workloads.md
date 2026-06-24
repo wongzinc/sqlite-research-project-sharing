@@ -5,7 +5,7 @@
 所有 workload 都跑在同一個 reference DB 上 (`testdb_builder.py` 產生的
 `items(id PK, k1, k2, payload BLOB(100))`，**600,000 rows**)。
 
-> 🆕 **2026-06-19 P0 Pipeline 統一**：所有 workload 的 cold-start measurement
+> **2026-06-19 P0 Pipeline 統一**：所有 workload 的 cold-start measurement
 > 機制已統一為 P0 pipeline——harness MADV chain (`--cold-advice dontneed`) +
 > `/usr/local/sbin/drop-caches` setuid wrapper 全機 drop + harness 內建
 > `--verify-hotset`（`cold_pct`/`delivery_pct`,非外部 residency_checker；措辭 2026-06-22 校正）。
@@ -15,9 +15,9 @@
 > commit `691bd6b` + `fc998cb` 統一。詳見
 > [IMPLEMENTATION_PIPELINES.md](IMPLEMENTATION_PIPELINES.md)。
 >
-> 本檔內所有 workload **定義不變**（key 範圍、分布、ops 數），但既有
-> measurement 數字（baseline latency / 改善 %）需要在 P0 pipeline 下重跑驗證
-> 才能列入論文最終版。
+> 本檔內所有 workload **定義不變**（key 範圍、分布、ops 數）。**measurement 數字
+> 已於 2026-06-23 全面用 P0 重跑**,權威全表見 [overall_results.md](overall_results.md)
+> 的 P0 表(全 cell `cold_pct`=0)。
 
 ---
 
@@ -135,12 +135,12 @@ warm；唯一還是 cold 的是 interior page**。所以這個 workload 是 pref
 
 **用在哪：**
 - `prefetch_vacuum/` 第 9–11 週的全部實驗（baseline / range / perpage / layers N）
-- `layout_rewriter/` 的 type-aware vacuum 端到端驗證（-69%）
-- `layout_rewriter/runs/` 的 1b VACUUM 補測、N sweep × {orig, vacuum} 全矩陣（找到 A vac 新甜蜜點 N=20）
-- `prefetch_slru/` 的 2f SLRU 驗證（orig + vacuum DB，first-q -94%、全 workload -39%）
+- `layout_rewriter/` 的 type-aware layout（P0:把 A/B baseline 推高、C 較快;見 overall_results.md）
+- `layout_rewriter/runs/` 的 1b VACUUM、N sweep 全矩陣
+- 2f SLRU（**P0:first-q −79~90%**;但 ~6–7.5ms preproc 使 e2e 出局）
 
-**為什麼這個 workload 會給「-54%」、「-69%」、甚至「-94%」這種看起來很漂亮的
-數字：** 因為 cold start 的 cost 被拆成「interior fault + leaf fault + CPU」，Zipfian 下
+**為什麼會出現「漂亮」的 first-query 改善（P0:2f −79~90%、2e_K10 在 C −85%）：**
+因為 cold start 的 cost 被拆成「interior fault + leaf fault + CPU」，Zipfian 下
 leaf 部分被反覆查詢拉進 cache，**剩下的瓶頸只有 interior**，prefetch 一解就
 見效。而 2f SLRU 連 leaf 一起 preload，連那點 leaf cold fault 都消掉。
 
@@ -162,8 +162,8 @@ sampling、爬蟲式存取。**每筆 query 都打到沒看過的 leaf**，leaf 
 **用在哪：**（最初是對照組，後來變成完整實測 workload）
 - `layout_rewriter/runs/` 的 1b VACUUM 補測、1c type-aware 補測、N sweep × {orig, vacuum} 全矩陣
   - **發現一**：B 上 N sweep 從 N=5 開始全 plateau（沒有 A 的 U 型曲線）
-  - **發現二**：ta + layers_5 在 B 上反而 +8%（不是 universal best）
-- `prefetch_slru/` 的 2f SLRU 驗證（orig + vacuum DB，first-q -94%、全 workload -38%）
+  - **發現二**：ta 在 B 上把 baseline 推高、layers_N 改善也較弱（P0:B/ta −24% vs orig −47%），非 universal best
+- `prefetch_slru/` 的 2f SLRU 驗證（P0:B first-q −85%,但 e2e 不具優勢）
 - 原始定位：當 Workload A 量出「prefetch 省了 54%」，B 回答「這效益只在熱點下
   才有意義嗎」 — 答案是 prefetch 仍然有效，但比例會被「無法被解決的 leaf
   fault」攤薄
@@ -187,15 +187,15 @@ INSERT 會把新資料放在檔尾，這個 workload 就在量「檔尾新資料
   製造寫入壓力，然後 drop cache，再跑這個 workload 量 cold-start latency
   - 原本只跑 N=5（第四維）
   - **後續 N sweep 補測**：[`prefetch_churn/runs_nsweep/`](prefetch_churn/runs_nsweep/) 跑了
-    N=0/1/5/10/20/46/92 × 10 checkpoints，見 [overall_results.md 第十維](overall_results.md#第十維--n-sweep--workload-c--churned-db補齊-prefetch_churn-缺口)
+    N=0/1/5/10/20/46/92 × 10 checkpoints，見 [overall_results.md](overall_results.md) churn 段
 - `layout_rewriter/runs/` 的 1b VACUUM、1c type-aware、N sweep × {orig, vacuum}
   全矩陣
   - **關鍵發現**：C 上 layers_N 必須 N=92（載全部 interior）才有 -46% 改善，
     N≤46 只有 ~15%。原因：C 走的 interior path 不在 file 前段，按 offset 排
     top-N 完全選錯 page。**這直接證明「layers_N 是 zipfian-friendly 啟發式」**
-  - **churned DB 上同樣的形狀**（第十維）：N=92 -54%、N≤46 plateau ~10%
-- `prefetch_slru/` 的 2f SLRU 驗證（C 上 hot set 只 1.6 MB，prefetch 開銷
-  只 1.9 ms vs A/B 的 7.5 ms — 是 2f 的甜蜜情境）
+  - **churned DB 上同樣的形狀**（P0）：N=92 −50%、N≤46 plateau ~−14%
+- `prefetch_slru/` 的 2f SLRU 驗證（C 上 hot set ~1.7 MB，preproc 只 ~1.1 ms
+  vs A/B 的 ~7.5 ms — 是 2f preproc 最低的情境）
 
 **為什麼選 high-key 而不是低 key：** 因為 prefetch_churn 想觀察 layout 隨寫入
 漂移的效果，而新 interior page 都會配在檔尾（id 590k+），打這段最能看到 layout
@@ -234,12 +234,8 @@ INSERT/UPDATE/DELETE 的寫入壓力，讓 SQLite freelist 重新分配、interi
 checkpoint 用 Workload C 量 cold-start latency，看「prefetch 在被 churn 過的
 layout 上還剩多少效益」。
 
-> ⚠️ **規模標示落差（[CONTRADICTIONS.md](CONTRADICTIONS.md) #29）**：「**檔案
-> 規模 100,000 ops**」跟「**實際每 batch 只用 5,000 × 10 batch = 50,000 ops**」
-> 是兩個不同概念，過去文件只標 100,000 容易讓人誤以為單次跑滿。**已修法**：
-> 上方欄位現在同時標兩個數字。**論文 §3.2 引用此 workload 時應寫**：「Workload D
-> 是 churn 寫入產生器，**每次 checkpoint 之間執行 5,000 ops、共 10 個 checkpoint**，
-> 累積影響 DB layout 演化」。
+> **規模標示（[CONTRADICTIONS.md](CONTRADICTIONS.md) #29）**：檔案規模 100,000 ops，
+> 但實際每 checkpoint 只用 5,000 ops、共 10 個 checkpoint = 50,000 ops（非單次跑滿）。
 
 ---
 
@@ -248,13 +244,13 @@ layout 上還剩多少效益」。
 | 實驗 | 用的 workload | 想回答的問題 |
 |---|---|---|
 | `prefetch_vacuum/` (Week 9–11) | A (Zipfian) | Prefetch interior pages 在熱點 workload 下能省多少？甜蜜點是 N=幾個 page？|
-| `layout_rewriter/` (type-aware vacuum 端到端) | A (Zipfian) | 把 interior 重排到檔頭，能不能救回 prefetch 效益？(-69%) |
+| `layout_rewriter/` (type-aware vacuum 端到端) | A (Zipfian) | 把 interior 重排到檔頭，能不能救回 prefetch 效益？(P0:A/ta baseline 反被推高 +31%) |
 | `layout_rewriter/runs/` (1b VACUUM × B/C) | B + C | VACUUM 對 baseline 和 prefetch 的影響在非 Zipfian workload 上是什麼樣 |
 | `layout_rewriter/runs/` (1c type-aware × B/C) | B + C | ta layout 是否 universal best？(答案：B 上反效果) |
 | `layout_rewriter/runs/` (N sweep × A/B/C × {orig, vacuum}) | A + B + C | 「N=5 甜蜜點」是 zipfian-friendly 還是 universal？(答案：zipfian-only) |
-| `prefetch_slru/` (2f SLRU × A/B/C × {orig, vacuum}) | A + B + C | mincore-dumped resident set preload 在三種 workload 的效益 (first-q -94%、全 workload A/B -38%、C -7%) |
+| `prefetch_slru/` (2f SLRU × A/B/C × {orig, vacuum}) | A + B + C | mincore-dumped resident set preload 在三種 workload 的效益 (P0:first-q −79~90%,但 e2e 全面不具優勢) |
 | `prefetch_churn/` 量測 (N=5 only) | C (high-key uniform) | Layout 隨 churn 漂移後，prefetch 效益怎麼變？|
-| `prefetch_churn/runs_nsweep/` (N=0,1,5,10,20,46,92) | C (high-key uniform) | churned DB 的 N sweep 形狀是否跟乾淨 DB 一致？(答案：完全一致，N=92 -54%) |
+| `prefetch_churn/runs_nsweep/` (N=0,1,5,10,20,46,92) | C (high-key uniform) | churned DB 的 N sweep 形狀是否跟乾淨 DB 一致？(P0:形狀一致,N=92 −50%) |
 | `prefetch_churn/` churn 生成 | D (mixed write) | 製造真實的 layout 漂移壓力（不量 latency）|
 | `multiprocess/` | 不用 workload（只測 residency / RSS）| MAP_SHARED 是否真的跨 process 共享 page cache？|
 
@@ -289,14 +285,14 @@ layout 上還剩多少效益」。
 
 | | A (Zipfian) | B (Uniform) | C (high-key) |
 |---|---|---|---|
-| **Layout 1a (orig)** | ✅ 全策略 + **RAM 20M** + **dense N=0..92** | ✅ 全策略 + **RAM 20M** + **dense N=0..92** | ✅ 全策略 + **RAM 20M** + **dense N=0..92** |
-| **Layout 1b (VACUUM)** | ✅ baseline + range/perpage/layers_5 + **N sweep + 2f SLRU + 2d/2e + RAM 20M** + **dense N=0..92** | ✅ 全策略 + **2d/2e + RAM 20M** + **dense N=0..92** | ✅ 全策略 + **2d/2e + RAM 20M** + **dense N=0..92** |
-| **Layout 1c (type-aware)** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** | ✅ baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** |
-| **Churn 漂移** | ✅ **N sweep + 2d/2e × delete-churn** + **dense N=0..92 × churn** | ✅ **N sweep + 2d/2e × churn** + **dense N=0..92 × churn** | ✅ 10 checkpoints × **N sweep + 2d/2e × insert-churn** + **dense N=0..92 × churn** |
-| **RAM-pressure 全矩陣** | ✅ 7 strategies × 1a/1b/1c × {20M, none} × 6 reps | ✅ 同左 | ✅ 同左 |
+| **Layout 1a (orig)** | 全策略 + **RAM 20M** + **dense N=0..92** | 全策略 + **RAM 20M** + **dense N=0..92** | 全策略 + **RAM 20M** + **dense N=0..92** |
+| **Layout 1b (VACUUM)** | baseline + range/perpage/layers_5 + **N sweep + 2f SLRU + 2d/2e + RAM 20M** + **dense N=0..92** | 全策略 + **2d/2e + RAM 20M** + **dense N=0..92** | 全策略 + **2d/2e + RAM 20M** + **dense N=0..92** |
+| **Layout 1c (type-aware)** | baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** | baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** | baseline + range/perpage + **N sweep** + 2f SLRU + **2d/2e + RAM 20M** + **dense N=0..92** |
+| **Churn 漂移** | **N sweep + 2d/2e × delete-churn** + **dense N=0..92 × churn** | **N sweep + 2d/2e × churn** + **dense N=0..92 × churn** | 10 checkpoints × **N sweep + 2d/2e × insert-churn** + **dense N=0..92 × churn** |
+| **RAM-pressure 全矩陣** | 7 strategies × 1a/1b/1c × {20M, none} × 6 reps | 同左 | 同左 |
 
 B 早就不再只是「對照組」 — 它是 prefetch 失敗模式（leaf fault 主導）和 ta
-layout 反效果（+8%）的主要證據來源。
+layout 反效果（P0:B/ta baseline +10%、prefetch 改善較弱）的主要證據來源。
 
 RAM-pressure 矩陣現已涵蓋 **9 個 (workload × layout) cell × 7 個策略 × 2 個 mem 上限**，
 全部以 6 reps median 聚合（756 cells，第十六維）。原本只測 A × 1a × 4 策略

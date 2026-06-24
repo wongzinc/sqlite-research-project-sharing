@@ -1,0 +1,41 @@
+{
+  "aggregation_metric": "resident snapshot count",
+  "classification_sha256": "6ec6837dc6a801c28e1cc08e90ccac570ee9a517765c0f6f03ab1b723349cc32",
+  "database_sha256": "35cf0dd25d71ec74e724d2065184c97f8019ad4505a26414bbd7351adc054ca3",
+  "eligible_interior_count": 92,
+  "eligible_leaf_count": 26239,
+  "layout": "original",
+  "memory_condition": {
+    "enabled": false,
+    "memory_max_bytes": null,
+    "name": "unlimited"
+  },
+  "profile_csv_path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/training_profiles/original/read_zipf_full/unlimited/7428d54690658217f77a92d159a44e9749eb32ea00deee5019a775cb30be4d88/residency_counts.csv",
+  "profile_csv_sha256": "1709ce1612c5087a37da3b068a0d046ad782a5e9fdcb620eba080ec7f9a6eea8",
+  "schema_version": 1,
+  "tie_break": "residency_count DESC, page_number ASC",
+  "training_run_count": 5,
+  "training_workloads": [
+    {
+      "name": "read_zipf_full_010.txt",
+      "sha256": "4ba56bb0a25bf4f246379b35ac3d274e690fa03b623d96002a860afe666c6863"
+    },
+    {
+      "name": "read_zipf_full_022.txt",
+      "sha256": "9e5f291e74aaf2164385a4b7feb6aab96846420cf940e873bb32965f45beef08"
+    },
+    {
+      "name": "read_zipf_full_024.txt",
+      "sha256": "268ead0667fe965b8eaba427dd0722bb25a96b884747d1d499ab3663040fa2c6"
+    },
+    {
+      "name": "read_zipf_full_006.txt",
+      "sha256": "0b476cd40c31d16f0da65b7e057b3c9d14dc2f9f820a761166b089877f517af6"
+    },
+    {
+      "name": "read_zipf_full_025.txt",
+      "sha256": "9faa76bdb3003ddc0c1ab540ceb0370c627cbf70bd59de9ae9813a9523b972b6"
+    }
+  ],
+  "workload_type": "read_zipf_full"
+}

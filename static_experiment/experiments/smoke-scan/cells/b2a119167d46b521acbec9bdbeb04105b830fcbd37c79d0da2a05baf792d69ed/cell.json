@@ -1,0 +1,180 @@
+{
+  "artifacts": {
+    "operations_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed/operations.csv",
+    "prefetch_result_json": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed/prefetch_result.json",
+    "run_record": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed/record/run-20260622-152524-4169267.log",
+    "stderr": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/logs/b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed.err",
+    "stdout": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/logs/b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed.out"
+  },
+  "backend": "pread",
+  "cell_id": "b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed",
+  "database_sha256": "35cf0dd25d71ec74e724d2065184c97f8019ad4505a26414bbd7351adc054ca3",
+  "error": null,
+  "experiment_id": "smoke-scan",
+  "harness_metrics": {
+    "after_cold_ranges": [
+      [
+        1,
+        16
+      ],
+      [
+        674,
+        678
+      ]
+    ],
+    "average_latency_us": 45.39,
+    "first_query_latency_us": 367.59,
+    "major_page_faults": 241,
+    "minor_page_faults": 119,
+    "operations_path": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed/operations.csv",
+    "ops": 1000,
+    "resident_after_cold_pages": 21
+  },
+  "layout": "original",
+  "measurement_file": {
+    "name": "scan_zipf_full_034.txt",
+    "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/scan_zipf_full_034.txt",
+    "sha256": "b354d72d395f5fb4949c7679fd7763dae1926d6b48de1b73c67d61615d3847c8"
+  },
+  "memory_condition": {
+    "enabled": false,
+    "memory_max_bytes": null,
+    "name": "unlimited"
+  },
+  "prefetch_result": {
+    "backend": "pread",
+    "bytes_completed": 20480,
+    "bytes_requested": 20480,
+    "cell_id": "b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed",
+    "eligible_interior_count": 92,
+    "eligible_leaf_count": 26239,
+    "errors": [],
+    "extent_count": 5,
+    "interior_k": null,
+    "io_operations": [
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 2,
+        "last_page": 2,
+        "length": 4096,
+        "offset": 4096,
+        "operation_index": 0,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 3,
+        "last_page": 3,
+        "length": 4096,
+        "offset": 8192,
+        "operation_index": 1,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 4,
+        "last_page": 4,
+        "length": 4096,
+        "offset": 12288,
+        "operation_index": 2,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 674,
+        "last_page": 674,
+        "length": 4096,
+        "offset": 2756608,
+        "operation_index": 3,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 675,
+        "last_page": 675,
+        "length": 4096,
+        "offset": 2760704,
+        "operation_index": 4,
+        "success": true
+      }
+    ],
+    "leaf_k": null,
+    "memory_condition": {
+      "enabled": false,
+      "memory_max_bytes": null,
+      "name": "unlimited"
+    },
+    "n": 5,
+    "pread_chunk_bytes": 1048576,
+    "pread_elapsed_us": 315,
+    "prefetch_elapsed_us": 315,
+    "schema_version": 1,
+    "selected_interior_count": 5,
+    "selected_leaf_count": 0,
+    "selected_pages_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed/selected_pages.csv",
+    "selected_unique_page_count": 5,
+    "short_read_count": 0,
+    "status": "completed",
+    "strategy": "offset_topk_interior",
+    "syscall_attempted_count": 5,
+    "syscall_failed_count": 0,
+    "syscall_succeeded_count": 5,
+    "variant": "n5"
+  },
+  "raw_result": {
+    "average_latency_us": 45.39,
+    "backend": "pread",
+    "cell_id": "b2a119167d46b521acbec9bdbeb04105b830fcbd37c79d0da2a05baf792d69ed",
+    "experiment_id": "smoke-scan",
+    "first_query_latency_us": 367.59,
+    "interior_k": "",
+    "layout": "original",
+    "leaf_k": "",
+    "major_page_faults": 241,
+    "measurement_file": "scan_zipf_full_034.txt",
+    "memory_condition": "unlimited",
+    "memory_limit_enabled": false,
+    "memory_max_bytes": "",
+    "minor_page_faults": 119,
+    "n": 5,
+    "prefetch_elapsed_us": 315,
+    "repetition": 1,
+    "requested_selected_resident_ratio": 1.0,
+    "resident_after_cold_pages": 21,
+    "selected_interior": 5,
+    "selected_leaf": 0,
+    "status": "completed",
+    "strategy": "offset_topk_interior",
+    "strategy_key": "offset_topk_interior_n5",
+    "successful_selected_resident_ratio": 1.0,
+    "syscall_count": 5,
+    "variant": "n5",
+    "workload_type": "scan_zipf_full"
+  },
+  "repetition": 1,
+  "residency_metrics": {
+    "requested_selected_resident_ratio": 1.0,
+    "successful_selected_resident_ratio": 1.0
+  },
+  "status": "completed",
+  "strategy": {
+    "interior_k": null,
+    "leaf_k": null,
+    "n": 5,
+    "strategy": "offset_topk_interior",
+    "variant": "n5"
+  },
+  "timeout": false,
+  "training_profile_sha256": null,
+  "workload_type": "scan_zipf_full"
+}

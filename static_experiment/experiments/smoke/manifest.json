@@ -1,0 +1,148 @@
+{
+  "config_sha256": "f3f36a82b23e49716196318f1dd01703a928d7011265f07139734e57460223a5",
+  "environment": {
+    "cpu_model": "AMD Ryzen 9 9950X 16-Core Processor",
+    "filesystem_type": "xfs",
+    "hostname": "meow1",
+    "linux_kernel_version": "6.17.0-19-generic",
+    "logical_cpu_count": 32,
+    "memory_conditions": [
+      {
+        "enabled": false,
+        "memory_max_bytes": null,
+        "name": "unlimited"
+      }
+    ],
+    "sqlite_page_sizes": {
+      "original": 4096
+    },
+    "sqlite_version": "3.46.1",
+    "storage_device_info": "{\n   \"blockdevices\": [\n      {\n         \"name\": \"sda\",\n         \"type\": \"disk\",\n         \"size\": \"3.6T\",\n         \"model\": \"WUS721204BLE6L4 \",\n         \"rota\": true,\n         \"mountpoints\": [],\n         \"children\": [\n            {\n               \"name\": \"sda1\",\n               \"type\": \"part\",\n               \"size\": \"3.6T\",\n               \"model\": null,\n               \"rota\": true,\n               \"mountpoints\": [\n                   \"/data\"\n               ]\n            }\n         ]\n      },{\n         \"name\": \"nvme2n1\",\n         \"type\": \"disk\",\n         \"size\": \"1.9T\",\n         \"model\": \"KINGSTON SKC3000D2048G\",\n         \"rota\": false,\n         \"mountpoints\": [\n             \"/scratch\"\n         ]\n      },{\n         \"name\": \"nvme0n1\",\n         \"type\": \"disk\",\n         \"size\": \"1.9T\",\n         \"model\": \"KINGSTON SKC3000D2048G\",\n         \"rota\": false,\n         \"mountpoints\": [\n             \"/home\"\n         ]\n      },{\n         \"name\": \"nvme1n1\",\n         \"type\": \"disk\",\n         \"size\": \"1.9T\",\n         \"model\": \"KINGSTON SKC3000D2048G\",\n         \"rota\": false,\n         \"mountpoints\": [],\n         \"children\": [\n            {\n               \"name\": \"nvme1n1p1\",\n               \"type\": \"part\",\n               \"size\": \"1G\",\n               \"model\": null,\n               \"rota\": false,\n               \"mountpoints\": [\n                   \"/boot/efi\"\n               ]\n            },{\n               \"name\": \"nvme1n1p2\",\n               \"type\": \"part\",\n               \"size\": \"2G\",\n               \"model\": null,\n               \"rota\": false,\n               \"mountpoints\": [\n                   \"/boot\"\n               ]\n            },{\n               \"name\": \"nvme1n1p3\",\n               \"type\": \"part\",\n               \"size\": \"1.9T\",\n               \"model\": null,\n               \"rota\": false,\n               \"mountpoints\": [],\n               \"children\": [\n                  {\n                     \"name\": \"ubuntu--vg-ubuntu--lv\",\n                     \"type\": \"lvm\",\n                     \"size\": \"200G\",\n                     \"model\": null,\n                     \"rota\": false,\n                     \"mountpoints\": [\n                         \"/var/lib/containers/storage/overlay\", \"/\"\n                     ]\n                  },{\n                     \"name\": \"ubuntu--vg-docker--lv\",\n                     \"type\": \"lvm\",\n                     \"size\": \"800G\",\n                     \"model\": null,\n                     \"rota\": false,\n                     \"mountpoints\": [\n                         \"/var/lib/docker\"\n                     ]\n                  }\n               ]\n            }\n         ]\n      }\n   ]\n}",
+    "total_ram_bytes": 63575379968
+  },
+  "experiment_id": "smoke",
+  "memory_conditions": [
+    {
+      "enabled": false,
+      "memory_max_bytes": null,
+      "name": "unlimited"
+    }
+  ],
+  "profiles": {
+    "original/read_zipf_full/unlimited": {
+      "memory_condition": {
+        "enabled": false,
+        "memory_max_bytes": null,
+        "name": "unlimited"
+      },
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/training_profiles/original/read_zipf_full/unlimited/7428d54690658217f77a92d159a44e9749eb32ea00deee5019a775cb30be4d88",
+      "profile_id": "7428d54690658217f77a92d159a44e9749eb32ea00deee5019a775cb30be4d88"
+    }
+  },
+  "sampling_seed": 20250620,
+  "schema_version": 1,
+  "tools": {
+    "aggregate_training.py": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/src/aggregate_training.py",
+      "sha256": "950b34fc71ff1e6591effacfc717a27942b84f7fd84486227ad93ed6d6ab2d25"
+    },
+    "benchmark_harness": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/bin/benchmark_harness",
+      "sha256": "b0af3c3af75966818a7e8e1d826ef0b17229965f431160c57e06d7d1d88cd87d"
+    },
+    "classify_pages": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/bin/classify_pages",
+      "sha256": "d853688c91eee87046ca8b03bd443700897e07dbcf9226f7eed141ae62fbe5c1"
+    },
+    "common.py": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/src/common.py",
+      "sha256": "59cdbd0373a29b681cb3509e270d90d881f0e370bbf74fab760cfc98b4fc7e93"
+    },
+    "drop_caches_script": {
+      "path": "/usr/local/sbin/drop-caches",
+      "sha256": "30ae499973c62ef0b1198f75bb27103ebb7e25922f58a093cd7802507af290b6"
+    },
+    "generate_report.py": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/src/generate_report.py",
+      "sha256": "9d42928d1f6896665e210fa9508214db487fe01592bd90f96c398c4dc8dd582a"
+    },
+    "orchestrator.py": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/src/orchestrator.py",
+      "sha256": "3bed30f9a4a6ba242ceafc00678074720eef40d69ea917cc510abf3bd712f976"
+    },
+    "plot_tradeoff.py": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/src/plot_tradeoff.py",
+      "sha256": "e34ddbac5d9900a261fa34ff4a3e301c27469267c483e26974a3f8bb025d1ae6"
+    },
+    "prefetch_runner": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/bin/prefetch_runner",
+      "sha256": "14ace475bc32ecb65def1c5c31d1c756a38e4f222329d66751414fcadc468d46"
+    },
+    "residency_checker": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/bin/residency_checker",
+      "sha256": "39af76df42a92612085facb8289ec135bd4c15d38b094b2851f0005d8f831fc2"
+    },
+    "summarize_results.py": {
+      "path": "/home/u03/sqlite-research-project-sharing/static_experiment/tools/src/summarize_results.py",
+      "sha256": "2d838b44cb9641d40f74be7f57f56853b9a35003c23bff9aa221aff92bf3945d"
+    }
+  },
+  "workloads": {
+    "read_zipf_full": {
+      "measurement": [
+        {
+          "name": "read_zipf_full_034.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_034.txt",
+          "sha256": "a0689409c9d30226b06d2c28df69640447b566363966caed3fcb2c62592972d3"
+        },
+        {
+          "name": "read_zipf_full_046.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_046.txt",
+          "sha256": "e722a11f77e2e687e5ede4221243af879bfa38bf630e90cd2d85738f07ce12d6"
+        },
+        {
+          "name": "read_zipf_full_027.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_027.txt",
+          "sha256": "abc214374e3a259d57bc15d11d1942f07faa5e278e136dce715fef9c0b4050a5"
+        },
+        {
+          "name": "read_zipf_full_033.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_033.txt",
+          "sha256": "ba3af72ec57ec0f276746dc84e3cd93be25d0e07f5b5e4df6d0bcea66854c884"
+        },
+        {
+          "name": "read_zipf_full_036.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_036.txt",
+          "sha256": "c9a5f97bc1259d977d3289dcb8777bb21ae1b2bc5aec1c10231c3f71552164d0"
+        }
+      ],
+      "training": [
+        {
+          "name": "read_zipf_full_010.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_010.txt",
+          "sha256": "4ba56bb0a25bf4f246379b35ac3d274e690fa03b623d96002a860afe666c6863"
+        },
+        {
+          "name": "read_zipf_full_022.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_022.txt",
+          "sha256": "9e5f291e74aaf2164385a4b7feb6aab96846420cf940e873bb32965f45beef08"
+        },
+        {
+          "name": "read_zipf_full_024.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_024.txt",
+          "sha256": "268ead0667fe965b8eaba427dd0722bb25a96b884747d1d499ab3663040fa2c6"
+        },
+        {
+          "name": "read_zipf_full_006.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_006.txt",
+          "sha256": "0b476cd40c31d16f0da65b7e057b3c9d14dc2f9f820a761166b089877f517af6"
+        },
+        {
+          "name": "read_zipf_full_025.txt",
+          "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_025.txt",
+          "sha256": "9faa76bdb3003ddc0c1ab540ceb0370c627cbf70bd59de9ae9813a9523b972b6"
+        }
+      ]
+    }
+  }
+}

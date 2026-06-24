@@ -1,0 +1,73 @@
+scope,measurement_file,metric,sample_count,mean,median,p25,p75,p99,min,max,comparison_basis,improvement_percent
+measurement,read_zipf_full_034.txt,prefetch_elapsed_us,1,8.0,8.0,8.0,8.0,8.0,8.0,8.0,,
+measurement,read_zipf_full_034.txt,first_query_latency_us,1,30.92,30.92,30.92,30.92,30.92,30.92,30.92,same-layout paired baseline,86.19950903816111
+measurement,read_zipf_full_034.txt,first_query_improvement_percent,1,86.19950903816111,86.19950903816111,86.19950903816111,86.19950903816111,86.19950903816111,86.19950903816111,86.19950903816111,same-layout paired baseline,86.19950903816111
+measurement,read_zipf_full_034.txt,effective_first_query_latency_us,1,38.92,38.92,38.92,38.92,38.92,38.92,38.92,same-layout paired baseline,82.62887748270474
+measurement,read_zipf_full_034.txt,effective_first_query_improvement_percent,1,82.62887748270474,82.62887748270474,82.62887748270474,82.62887748270474,82.62887748270474,82.62887748270474,82.62887748270474,same-layout paired baseline,82.62887748270474
+measurement,read_zipf_full_034.txt,average_latency_us,1,42.65,42.65,42.65,42.65,42.65,42.65,42.65,same-layout paired baseline,0.18722209220687644
+measurement,read_zipf_full_034.txt,average_improvement_percent,1,0.18722209220687644,0.18722209220687644,0.18722209220687644,0.18722209220687644,0.18722209220687644,0.18722209220687644,0.18722209220687644,same-layout paired baseline,0.18722209220687644
+measurement,read_zipf_full_034.txt,major_page_faults,1,244.0,244.0,244.0,244.0,244.0,244.0,244.0,,
+measurement,read_zipf_full_034.txt,minor_page_faults,1,65.0,65.0,65.0,65.0,65.0,65.0,65.0,,
+measurement,read_zipf_full_034.txt,resident_after_cold_pages,1,18.0,18.0,18.0,18.0,18.0,18.0,18.0,,
+measurement,read_zipf_full_034.txt,requested_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_034.txt,successful_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_046.txt,prefetch_elapsed_us,1,16.0,16.0,16.0,16.0,16.0,16.0,16.0,,
+measurement,read_zipf_full_046.txt,first_query_latency_us,1,21.28,21.28,21.28,21.28,21.28,21.28,21.28,same-layout paired baseline,90.27511196417146
+measurement,read_zipf_full_046.txt,first_query_improvement_percent,1,90.27511196417146,90.27511196417146,90.27511196417146,90.27511196417146,90.27511196417146,90.27511196417146,90.27511196417146,same-layout paired baseline,90.27511196417146
+measurement,read_zipf_full_046.txt,effective_first_query_latency_us,1,37.28,37.28,37.28,37.28,37.28,37.28,37.28,same-layout paired baseline,82.96316607257106
+measurement,read_zipf_full_046.txt,effective_first_query_improvement_percent,1,82.96316607257106,82.96316607257106,82.96316607257106,82.96316607257106,82.96316607257106,82.96316607257106,82.96316607257106,same-layout paired baseline,82.96316607257106
+measurement,read_zipf_full_046.txt,average_latency_us,1,44.62,44.62,44.62,44.62,44.62,44.62,44.62,same-layout paired baseline,-0.6087936865839819
+measurement,read_zipf_full_046.txt,average_improvement_percent,1,-0.6087936865839819,-0.6087936865839819,-0.6087936865839819,-0.6087936865839819,-0.6087936865839819,-0.6087936865839819,-0.6087936865839819,same-layout paired baseline,-0.6087936865839819
+measurement,read_zipf_full_046.txt,major_page_faults,1,256.0,256.0,256.0,256.0,256.0,256.0,256.0,,
+measurement,read_zipf_full_046.txt,minor_page_faults,1,70.0,70.0,70.0,70.0,70.0,70.0,70.0,,
+measurement,read_zipf_full_046.txt,resident_after_cold_pages,1,18.0,18.0,18.0,18.0,18.0,18.0,18.0,,
+measurement,read_zipf_full_046.txt,requested_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_046.txt,successful_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_027.txt,prefetch_elapsed_us,1,8.0,8.0,8.0,8.0,8.0,8.0,8.0,,
+measurement,read_zipf_full_027.txt,first_query_latency_us,1,44.99,44.99,44.99,44.99,44.99,44.99,44.99,same-layout paired baseline,76.53226227113869
+measurement,read_zipf_full_027.txt,first_query_improvement_percent,1,76.53226227113869,76.53226227113869,76.53226227113869,76.53226227113869,76.53226227113869,76.53226227113869,76.53226227113869,same-layout paired baseline,76.53226227113869
+measurement,read_zipf_full_027.txt,effective_first_query_latency_us,1,52.99,52.99,52.99,52.99,52.99,52.99,52.99,same-layout paired baseline,72.35929268165458
+measurement,read_zipf_full_027.txt,effective_first_query_improvement_percent,1,72.35929268165458,72.35929268165458,72.35929268165458,72.35929268165458,72.35929268165458,72.35929268165458,72.35929268165458,same-layout paired baseline,72.35929268165458
+measurement,read_zipf_full_027.txt,average_latency_us,1,47.85,47.85,47.85,47.85,47.85,47.85,47.85,same-layout paired baseline,0.0626566416040124
+measurement,read_zipf_full_027.txt,average_improvement_percent,1,0.0626566416040124,0.0626566416040124,0.0626566416040124,0.0626566416040124,0.0626566416040124,0.0626566416040124,0.0626566416040124,same-layout paired baseline,0.0626566416040124
+measurement,read_zipf_full_027.txt,major_page_faults,1,280.0,280.0,280.0,280.0,280.0,280.0,280.0,,
+measurement,read_zipf_full_027.txt,minor_page_faults,1,56.0,56.0,56.0,56.0,56.0,56.0,56.0,,
+measurement,read_zipf_full_027.txt,resident_after_cold_pages,1,18.0,18.0,18.0,18.0,18.0,18.0,18.0,,
+measurement,read_zipf_full_027.txt,requested_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_027.txt,successful_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_033.txt,prefetch_elapsed_us,1,6.0,6.0,6.0,6.0,6.0,6.0,6.0,,
+measurement,read_zipf_full_033.txt,first_query_latency_us,1,362.02,362.02,362.02,362.02,362.02,362.02,362.02,same-layout paired baseline,5.790199599240118
+measurement,read_zipf_full_033.txt,first_query_improvement_percent,1,5.790199599240118,5.790199599240118,5.790199599240118,5.790199599240118,5.790199599240118,5.790199599240118,5.790199599240118,same-layout paired baseline,5.790199599240118
+measurement,read_zipf_full_033.txt,effective_first_query_latency_us,1,368.02,368.02,368.02,368.02,368.02,368.02,368.02,same-layout paired baseline,4.228797460119187
+measurement,read_zipf_full_033.txt,effective_first_query_improvement_percent,1,4.228797460119187,4.228797460119187,4.228797460119187,4.228797460119187,4.228797460119187,4.228797460119187,4.228797460119187,same-layout paired baseline,4.228797460119187
+measurement,read_zipf_full_033.txt,average_latency_us,1,43.99,43.99,43.99,43.99,43.99,43.99,43.99,same-layout paired baseline,9.948822927328555
+measurement,read_zipf_full_033.txt,average_improvement_percent,1,9.948822927328555,9.948822927328555,9.948822927328555,9.948822927328555,9.948822927328555,9.948822927328555,9.948822927328555,same-layout paired baseline,9.948822927328555
+measurement,read_zipf_full_033.txt,major_page_faults,1,254.0,254.0,254.0,254.0,254.0,254.0,254.0,,
+measurement,read_zipf_full_033.txt,minor_page_faults,1,72.0,72.0,72.0,72.0,72.0,72.0,72.0,,
+measurement,read_zipf_full_033.txt,resident_after_cold_pages,1,18.0,18.0,18.0,18.0,18.0,18.0,18.0,,
+measurement,read_zipf_full_033.txt,requested_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_033.txt,successful_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_036.txt,prefetch_elapsed_us,1,6.0,6.0,6.0,6.0,6.0,6.0,6.0,,
+measurement,read_zipf_full_036.txt,first_query_latency_us,1,25.79,25.79,25.79,25.79,25.79,25.79,25.79,same-layout paired baseline,86.33207907149293
+measurement,read_zipf_full_036.txt,first_query_improvement_percent,1,86.33207907149293,86.33207907149293,86.33207907149293,86.33207907149293,86.33207907149293,86.33207907149293,86.33207907149293,same-layout paired baseline,86.33207907149293
+measurement,read_zipf_full_036.txt,effective_first_query_latency_us,1,31.79,31.79,31.79,31.79,31.79,31.79,31.79,same-layout paired baseline,83.15226032116169
+measurement,read_zipf_full_036.txt,effective_first_query_improvement_percent,1,83.15226032116169,83.15226032116169,83.15226032116169,83.15226032116169,83.15226032116169,83.15226032116169,83.15226032116169,same-layout paired baseline,83.15226032116169
+measurement,read_zipf_full_036.txt,average_latency_us,1,42.47,42.47,42.47,42.47,42.47,42.47,42.47,same-layout paired baseline,-0.1650943396226422
+measurement,read_zipf_full_036.txt,average_improvement_percent,1,-0.1650943396226422,-0.1650943396226422,-0.1650943396226422,-0.1650943396226422,-0.1650943396226422,-0.1650943396226422,-0.1650943396226422,same-layout paired baseline,-0.1650943396226422
+measurement,read_zipf_full_036.txt,major_page_faults,1,245.0,245.0,245.0,245.0,245.0,245.0,245.0,,
+measurement,read_zipf_full_036.txt,minor_page_faults,1,62.0,62.0,62.0,62.0,62.0,62.0,62.0,,
+measurement,read_zipf_full_036.txt,resident_after_cold_pages,1,18.0,18.0,18.0,18.0,18.0,18.0,18.0,,
+measurement,read_zipf_full_036.txt,requested_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+measurement,read_zipf_full_036.txt,successful_selected_resident_ratio,1,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+strategy,,prefetch_elapsed_us,5,8.8,8.0,6.0,8.0,16.0,6.0,16.0,,
+strategy,,first_query_latency_us,5,97.0,30.92,25.79,44.99,362.02,21.28,362.02,same-layout paired baseline,69.02583238884087
+strategy,,first_query_improvement_percent,5,69.02583238884087,86.19950903816111,76.53226227113869,86.33207907149293,90.27511196417146,5.790199599240118,90.27511196417146,same-layout paired baseline,69.02583238884087
+strategy,,effective_first_query_latency_us,5,105.8,38.92,37.28,52.99,368.02,31.79,368.02,same-layout paired baseline,65.06647880364224
+strategy,,effective_first_query_improvement_percent,5,65.06647880364224,82.62887748270474,72.35929268165458,82.96316607257106,83.15226032116169,4.228797460119187,83.15226032116169,same-layout paired baseline,65.06647880364224
+strategy,,average_latency_us,5,44.315999999999995,43.99,42.65,44.62,47.85,42.47,47.85,same-layout paired baseline,1.8849627269865639
+strategy,,average_improvement_percent,5,1.8849627269865639,0.0626566416040124,-0.1650943396226422,0.18722209220687644,9.948822927328555,-0.6087936865839819,9.948822927328555,same-layout paired baseline,1.8849627269865639
+strategy,,major_page_faults,5,255.8,254.0,245.0,256.0,280.0,244.0,280.0,,
+strategy,,minor_page_faults,5,65.0,65.0,62.0,70.0,72.0,56.0,72.0,,
+strategy,,resident_after_cold_pages,5,18.0,18.0,18.0,18.0,18.0,18.0,18.0,,
+strategy,,requested_selected_resident_ratio,5,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,
+strategy,,successful_selected_resident_ratio,5,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,

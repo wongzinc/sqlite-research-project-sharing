@@ -1,0 +1,180 @@
+{
+  "artifacts": {
+    "operations_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499/operations.csv",
+    "prefetch_result_json": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499/prefetch_result.json",
+    "run_record": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499/record/run-20260622-152426-4168484.log",
+    "stderr": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/logs/af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499.err",
+    "stdout": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/logs/af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499.out"
+  },
+  "backend": "madvise",
+  "cell_id": "af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499",
+  "database_sha256": "35cf0dd25d71ec74e724d2065184c97f8019ad4505a26414bbd7351adc054ca3",
+  "error": null,
+  "experiment_id": "smoke",
+  "harness_metrics": {
+    "after_cold_ranges": [
+      [
+        1,
+        16
+      ],
+      [
+        674,
+        675
+      ]
+    ],
+    "average_latency_us": 42.65,
+    "first_query_latency_us": 30.92,
+    "major_page_faults": 244,
+    "minor_page_faults": 65,
+    "operations_path": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499/operations.csv",
+    "ops": 1000,
+    "resident_after_cold_pages": 18
+  },
+  "layout": "original",
+  "measurement_file": {
+    "name": "read_zipf_full_034.txt",
+    "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/read_zipf_full_034.txt",
+    "sha256": "a0689409c9d30226b06d2c28df69640447b566363966caed3fcb2c62592972d3"
+  },
+  "memory_condition": {
+    "enabled": false,
+    "memory_max_bytes": null,
+    "name": "unlimited"
+  },
+  "prefetch_result": {
+    "backend": "madvise",
+    "bytes_completed": 20480,
+    "bytes_requested": 20480,
+    "cell_id": "af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499",
+    "eligible_interior_count": 92,
+    "eligible_leaf_count": 26239,
+    "errors": [],
+    "extent_count": 5,
+    "interior_k": null,
+    "io_operations": [
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 2,
+        "last_page": 2,
+        "length": 4096,
+        "offset": 4096,
+        "operation_index": 0,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 3,
+        "last_page": 3,
+        "length": 4096,
+        "offset": 8192,
+        "operation_index": 1,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 4,
+        "last_page": 4,
+        "length": 4096,
+        "offset": 12288,
+        "operation_index": 2,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 674,
+        "last_page": 674,
+        "length": 4096,
+        "offset": 2756608,
+        "operation_index": 3,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 675,
+        "last_page": 675,
+        "length": 4096,
+        "offset": 2760704,
+        "operation_index": 4,
+        "success": true
+      }
+    ],
+    "leaf_k": null,
+    "madvise_dispatch_us": 8,
+    "memory_condition": {
+      "enabled": false,
+      "memory_max_bytes": null,
+      "name": "unlimited"
+    },
+    "n": 5,
+    "pread_chunk_bytes": 1048576,
+    "prefetch_elapsed_us": 8,
+    "schema_version": 1,
+    "selected_interior_count": 5,
+    "selected_leaf_count": 0,
+    "selected_pages_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke/cells/af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499/selected_pages.csv",
+    "selected_unique_page_count": 5,
+    "short_read_count": 0,
+    "status": "completed",
+    "strategy": "offset_topk_interior",
+    "syscall_attempted_count": 5,
+    "syscall_failed_count": 0,
+    "syscall_succeeded_count": 5,
+    "variant": "n5"
+  },
+  "raw_result": {
+    "average_latency_us": 42.65,
+    "backend": "madvise",
+    "cell_id": "af163b9c23482aeef15e4effb55eda4893b5f971d42f643703d37ac16d4c7499",
+    "experiment_id": "smoke",
+    "first_query_latency_us": 30.92,
+    "interior_k": "",
+    "layout": "original",
+    "leaf_k": "",
+    "major_page_faults": 244,
+    "measurement_file": "read_zipf_full_034.txt",
+    "memory_condition": "unlimited",
+    "memory_limit_enabled": false,
+    "memory_max_bytes": "",
+    "minor_page_faults": 65,
+    "n": 5,
+    "prefetch_elapsed_us": 8,
+    "repetition": 1,
+    "requested_selected_resident_ratio": 1.0,
+    "resident_after_cold_pages": 18,
+    "selected_interior": 5,
+    "selected_leaf": 0,
+    "status": "completed",
+    "strategy": "offset_topk_interior",
+    "strategy_key": "offset_topk_interior_n5",
+    "successful_selected_resident_ratio": 1.0,
+    "syscall_count": 5,
+    "variant": "n5",
+    "workload_type": "read_zipf_full"
+  },
+  "repetition": 1,
+  "residency_metrics": {
+    "requested_selected_resident_ratio": 1.0,
+    "successful_selected_resident_ratio": 1.0
+  },
+  "status": "completed",
+  "strategy": {
+    "interior_k": null,
+    "leaf_k": null,
+    "n": 5,
+    "strategy": "offset_topk_interior",
+    "variant": "n5"
+  },
+  "timeout": false,
+  "training_profile_sha256": null,
+  "workload_type": "read_zipf_full"
+}

@@ -20,9 +20,11 @@ STRATS = [("baseline", "baseline", "#9ca3af"),
 WORKLOADS = ["A", "B", "C"]
 WL_TITLE = {"A": "Workload A (Zipfian)", "B": "Workload B (uniform)", "C": "Workload C (churn-heavy)"}
 
-# (workload, strategy) -> {checkpoint: fq}
+# (workload, strategy) -> {checkpoint: fq}  (headline panel = layout orig; CSV also has vacuum/ta)
 data = defaultdict(dict)
 for r in csv.DictReader(open(CSVP)):
+    if r.get("layout", "orig") != "orig":
+        continue
     data[(r["workload"], r["strategy"])][int(r["checkpoint"])] = float(r["first_query_us"])
 
 fig, axes = plt.subplots(1, 3, figsize=(14, 4.4), sharey=True)

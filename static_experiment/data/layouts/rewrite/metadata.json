@@ -1,0 +1,15 @@
+{
+  "classification_sha256": "e920a7d67e03f3179cb10a69a4b5069b4746f630799c9ec5df1f3081a799d9c7",
+  "file_size": 107851776,
+  "fix_sql_sha256": "e2b5b27562ca67d6937f8f0952b81769b6e80e6de8e7a3dcbf959c0ca709ebfd",
+  "freelist_count": 0,
+  "layout": "rewrite",
+  "output_db_sha256": "c45568471504c7cbd019c6f15abec087a87ada0ba870017710ef21cbf52c8180",
+  "schema_version": 1,
+  "source_db_sha256": "35cf0dd25d71ec74e724d2065184c97f8019ad4505a26414bbd7351adc054ca3",
+  "sqlite_page_count": 26331,
+  "sqlite_page_size": 4096,
+  "sqlite_version": "3.46.1",
+  "transformation": "type-aware-rewrite",
+  "transformation_tool_sha256": "cf794bcd0b078967a18387dbfcc66c474a90de8762a57d98fa0b3680151c44c9"
+}

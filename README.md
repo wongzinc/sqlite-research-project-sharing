@@ -396,7 +396,7 @@ C 上的「query 走的 interior path 不在 file 前段」—— 按 offset 排
 3. **多 process 場景下，prefetch worker cadence 該多大？**
 
    答：**cadence ≤ query 間隔 才可靠 warm**。在 writer + prefetcher + probe 三線程的最小實驗中（gap=3 s），cadence=1 s 把 first_q 從 295 µs 壓到 19 µs（-94%），cadence=5 s 只有 ~50% hit rate（177 µs, -40%），cadence=30 s 等同無 prefetcher。1 s prefetcher 成本是 ~14 syscalls/s，但 N 個 reader 共享同一個 MAP_SHARED page cache，所以 prefetcher 開銷固定、benefit 乘 N。
-   資料來源：[multiprocess/runs_prefetch_cadence/README.md](multiprocess/runs_prefetch_cadence/README.md)；matrix CSV [multiprocess/runs_prefetch_cadence/cadence_results.csv](multiprocess/runs_prefetch_cadence/cadence_results.csv)；圖 [figures/out/08_cadence_comparison.png](figures/out/08_cadence_comparison.png)（⚠️ P0 cold-start 模型外：cadence 為 multiprocess warm-keeping、非 cold-start TTFQ）。
+   資料來源：[multiprocess/runs_prefetch_cadence/README.md](multiprocess/runs_prefetch_cadence/README.md)；matrix CSV [multiprocess/runs_prefetch_cadence/cadence_results.csv](multiprocess/runs_prefetch_cadence/cadence_results.csv)；圖 [figures/out/08_cadence_comparison.png](figures/out/08_cadence_comparison.png)（✅ P0：`run_p0_cadence.py`，背景 warmer + P0 全機 drop-caches probe）。
 
 4. **2d/2e access-pattern prefetch 在 churned DB 上會不會退化？**
 

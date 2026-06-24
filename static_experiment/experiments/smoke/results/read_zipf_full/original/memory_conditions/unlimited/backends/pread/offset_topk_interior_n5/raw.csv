@@ -1,0 +1,6 @@
+cell_id,status,measurement_file,repetition,selected_interior,selected_leaf,syscall_count,prefetch_elapsed_us,first_query_latency_us,average_latency_us,major_page_faults,minor_page_faults,resident_after_cold_pages,requested_selected_resident_ratio,successful_selected_resident_ratio
+3ea10684e2d8beb9872ac71c10666ce0034a9f0bd2a0703dd3d966cdc5a017e3,completed,read_zipf_full_034.txt,1,5,0,5,314,41.92,42.52,244,64,21,1.0,1.0
+da879c8a1aeb50ce52ab79dba13bb5b4e930892e201ecdd7fe78d5ab807dbe94,completed,read_zipf_full_046.txt,1,5,0,5,326,41.75,45.25,256,70,21,1.0,1.0
+7fc580be19afba14a71b88cc896ff72791510786c0391f52773cb3bda6c8e4c0,completed,read_zipf_full_027.txt,1,5,0,5,338,28.35,48.61,280,55,21,1.0,1.0
+d6138fe7ce9b82becff8bc30e4ce36650cecf1109444ca3d6ed8497b6d0e9a96,completed,read_zipf_full_033.txt,1,5,0,5,129,357.2,43.92,253,72,21,1.0,1.0
+25daef1de619b669a7ff6e628ceb7288c3b95af225c64c8d83bc3ee707a5df2a,completed,read_zipf_full_036.txt,1,5,0,5,128,21.08,41.75,245,62,21,1.0,1.0

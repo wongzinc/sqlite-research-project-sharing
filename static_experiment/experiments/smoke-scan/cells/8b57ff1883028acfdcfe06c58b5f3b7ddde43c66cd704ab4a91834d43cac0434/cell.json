@@ -1,0 +1,1422 @@
+{
+  "artifacts": {
+    "operations_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434/operations.csv",
+    "prefetch_result_json": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434/prefetch_result.json",
+    "run_record": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434/record/run-20260622-152523-4169241.log",
+    "stderr": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/logs/8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434.err",
+    "stdout": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/logs/8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434.out"
+  },
+  "backend": "pread",
+  "cell_id": "8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434",
+  "database_sha256": "35cf0dd25d71ec74e724d2065184c97f8019ad4505a26414bbd7351adc054ca3",
+  "error": null,
+  "experiment_id": "smoke-scan",
+  "harness_metrics": {
+    "after_cold_ranges": [
+      [
+        1,
+        16
+      ],
+      [
+        674,
+        675
+      ],
+      [
+        1267,
+        1267
+      ],
+      [
+        1588,
+        1589
+      ],
+      [
+        1640,
+        1641
+      ],
+      [
+        1866,
+        1866
+      ],
+      [
+        2390,
+        2390
+      ],
+      [
+        2909,
+        2909
+      ],
+      [
+        3071,
+        3071
+      ],
+      [
+        3183,
+        3183
+      ],
+      [
+        3433,
+        3433
+      ],
+      [
+        3964,
+        3964
+      ],
+      [
+        4479,
+        4479
+      ],
+      [
+        4552,
+        4552
+      ],
+      [
+        4699,
+        4699
+      ],
+      [
+        4998,
+        4998
+      ],
+      [
+        5532,
+        5532
+      ],
+      [
+        5598,
+        5598
+      ],
+      [
+        5864,
+        5864
+      ],
+      [
+        6053,
+        6053
+      ],
+      [
+        6570,
+        6570
+      ],
+      [
+        6729,
+        6729
+      ],
+      [
+        7092,
+        7092
+      ],
+      [
+        7155,
+        7155
+      ],
+      [
+        7622,
+        7622
+      ],
+      [
+        7959,
+        7959
+      ],
+      [
+        8150,
+        8150
+      ],
+      [
+        8471,
+        8471
+      ],
+      [
+        8673,
+        8673
+      ],
+      [
+        9178,
+        9178
+      ],
+      [
+        9711,
+        9711
+      ],
+      [
+        9756,
+        9756
+      ],
+      [
+        10227,
+        10227
+      ],
+      [
+        10626,
+        10626
+      ],
+      [
+        10758,
+        10758
+      ],
+      [
+        11052,
+        11052
+      ],
+      [
+        11284,
+        11284
+      ],
+      [
+        11808,
+        11808
+      ],
+      [
+        12175,
+        12175
+      ],
+      [
+        12243,
+        12243
+      ],
+      [
+        12357,
+        12357
+      ],
+      [
+        12385,
+        12385
+      ],
+      [
+        12873,
+        12873
+      ],
+      [
+        13392,
+        13392
+      ],
+      [
+        13674,
+        13674
+      ],
+      [
+        13925,
+        13925
+      ],
+      [
+        14374,
+        14374
+      ],
+      [
+        14499,
+        14499
+      ],
+      [
+        15060,
+        15060
+      ],
+      [
+        15068,
+        15068
+      ],
+      [
+        15596,
+        15596
+      ],
+      [
+        15685,
+        15685
+      ],
+      [
+        16117,
+        16117
+      ],
+      [
+        16363,
+        16363
+      ],
+      [
+        16555,
+        16555
+      ],
+      [
+        16605,
+        16605
+      ],
+      [
+        17083,
+        17083
+      ],
+      [
+        17552,
+        17552
+      ],
+      [
+        17565,
+        17565
+      ],
+      [
+        18071,
+        18071
+      ],
+      [
+        18599,
+        18599
+      ],
+      [
+        18853,
+        18853
+      ],
+      [
+        18963,
+        18963
+      ],
+      [
+        19142,
+        19142
+      ],
+      [
+        19638,
+        19638
+      ],
+      [
+        20128,
+        20128
+      ],
+      [
+        20156,
+        20156
+      ],
+      [
+        20346,
+        20346
+      ],
+      [
+        20679,
+        20679
+      ],
+      [
+        21202,
+        21202
+      ],
+      [
+        21422,
+        21422
+      ],
+      [
+        21724,
+        21724
+      ],
+      [
+        22262,
+        22262
+      ],
+      [
+        22737,
+        22737
+      ],
+      [
+        22786,
+        22786
+      ],
+      [
+        22894,
+        22894
+      ],
+      [
+        23042,
+        23042
+      ],
+      [
+        23203,
+        23203
+      ],
+      [
+        23334,
+        23334
+      ],
+      [
+        23882,
+        23882
+      ],
+      [
+        24092,
+        24092
+      ],
+      [
+        24408,
+        24408
+      ],
+      [
+        24552,
+        24552
+      ],
+      [
+        24960,
+        24960
+      ],
+      [
+        25412,
+        25412
+      ],
+      [
+        25481,
+        25481
+      ],
+      [
+        26007,
+        26007
+      ]
+    ],
+    "average_latency_us": 43.86,
+    "first_query_latency_us": 218.63,
+    "major_page_faults": 239,
+    "minor_page_faults": 154,
+    "operations_path": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434/operations.csv",
+    "ops": 1000,
+    "resident_after_cold_pages": 105
+  },
+  "layout": "original",
+  "measurement_file": {
+    "name": "scan_zipf_full_027.txt",
+    "path": "/home/u03/sqlite-research-project-sharing/static_experiment/data/workloads/scan_zipf_full_027.txt",
+    "sha256": "ef4fb9a0cb8a5637490d251b4d850cbd822f2dc355de3b1e173e1db0470cb0f9"
+  },
+  "memory_condition": {
+    "enabled": false,
+    "memory_max_bytes": null,
+    "name": "unlimited"
+  },
+  "prefetch_result": {
+    "backend": "pread",
+    "bytes_completed": 376832,
+    "bytes_requested": 376832,
+    "cell_id": "8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434",
+    "eligible_interior_count": 92,
+    "eligible_leaf_count": 26239,
+    "errors": [],
+    "extent_count": 87,
+    "interior_k": null,
+    "io_operations": [
+      {
+        "backend_calls": 1,
+        "bytes_completed": 12288,
+        "errno": null,
+        "first_page": 2,
+        "last_page": 4,
+        "length": 12288,
+        "offset": 4096,
+        "operation_index": 0,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 8192,
+        "errno": null,
+        "first_page": 674,
+        "last_page": 675,
+        "length": 8192,
+        "offset": 2756608,
+        "operation_index": 1,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 1267,
+        "last_page": 1267,
+        "length": 4096,
+        "offset": 5185536,
+        "operation_index": 2,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 8192,
+        "errno": null,
+        "first_page": 1588,
+        "last_page": 1589,
+        "length": 8192,
+        "offset": 6500352,
+        "operation_index": 3,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 8192,
+        "errno": null,
+        "first_page": 1640,
+        "last_page": 1641,
+        "length": 8192,
+        "offset": 6713344,
+        "operation_index": 4,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 1866,
+        "last_page": 1866,
+        "length": 4096,
+        "offset": 7639040,
+        "operation_index": 5,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 2390,
+        "last_page": 2390,
+        "length": 4096,
+        "offset": 9785344,
+        "operation_index": 6,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 2909,
+        "last_page": 2909,
+        "length": 4096,
+        "offset": 11911168,
+        "operation_index": 7,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 3071,
+        "last_page": 3071,
+        "length": 4096,
+        "offset": 12574720,
+        "operation_index": 8,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 3183,
+        "last_page": 3183,
+        "length": 4096,
+        "offset": 13033472,
+        "operation_index": 9,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 3433,
+        "last_page": 3433,
+        "length": 4096,
+        "offset": 14057472,
+        "operation_index": 10,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 3964,
+        "last_page": 3964,
+        "length": 4096,
+        "offset": 16232448,
+        "operation_index": 11,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 4479,
+        "last_page": 4479,
+        "length": 4096,
+        "offset": 18341888,
+        "operation_index": 12,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 4552,
+        "last_page": 4552,
+        "length": 4096,
+        "offset": 18640896,
+        "operation_index": 13,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 4699,
+        "last_page": 4699,
+        "length": 4096,
+        "offset": 19243008,
+        "operation_index": 14,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 4998,
+        "last_page": 4998,
+        "length": 4096,
+        "offset": 20467712,
+        "operation_index": 15,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 5532,
+        "last_page": 5532,
+        "length": 4096,
+        "offset": 22654976,
+        "operation_index": 16,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 5598,
+        "last_page": 5598,
+        "length": 4096,
+        "offset": 22925312,
+        "operation_index": 17,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 5864,
+        "last_page": 5864,
+        "length": 4096,
+        "offset": 24014848,
+        "operation_index": 18,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 6053,
+        "last_page": 6053,
+        "length": 4096,
+        "offset": 24788992,
+        "operation_index": 19,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 6570,
+        "last_page": 6570,
+        "length": 4096,
+        "offset": 26906624,
+        "operation_index": 20,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 6729,
+        "last_page": 6729,
+        "length": 4096,
+        "offset": 27557888,
+        "operation_index": 21,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 7092,
+        "last_page": 7092,
+        "length": 4096,
+        "offset": 29044736,
+        "operation_index": 22,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 7155,
+        "last_page": 7155,
+        "length": 4096,
+        "offset": 29302784,
+        "operation_index": 23,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 7622,
+        "last_page": 7622,
+        "length": 4096,
+        "offset": 31215616,
+        "operation_index": 24,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 7959,
+        "last_page": 7959,
+        "length": 4096,
+        "offset": 32595968,
+        "operation_index": 25,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 8150,
+        "last_page": 8150,
+        "length": 4096,
+        "offset": 33378304,
+        "operation_index": 26,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 8471,
+        "last_page": 8471,
+        "length": 4096,
+        "offset": 34693120,
+        "operation_index": 27,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 8673,
+        "last_page": 8673,
+        "length": 4096,
+        "offset": 35520512,
+        "operation_index": 28,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 9178,
+        "last_page": 9178,
+        "length": 4096,
+        "offset": 37588992,
+        "operation_index": 29,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 9711,
+        "last_page": 9711,
+        "length": 4096,
+        "offset": 39772160,
+        "operation_index": 30,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 9756,
+        "last_page": 9756,
+        "length": 4096,
+        "offset": 39956480,
+        "operation_index": 31,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 10227,
+        "last_page": 10227,
+        "length": 4096,
+        "offset": 41885696,
+        "operation_index": 32,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 10626,
+        "last_page": 10626,
+        "length": 4096,
+        "offset": 43520000,
+        "operation_index": 33,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 10758,
+        "last_page": 10758,
+        "length": 4096,
+        "offset": 44060672,
+        "operation_index": 34,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 11052,
+        "last_page": 11052,
+        "length": 4096,
+        "offset": 45264896,
+        "operation_index": 35,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 11284,
+        "last_page": 11284,
+        "length": 4096,
+        "offset": 46215168,
+        "operation_index": 36,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 11808,
+        "last_page": 11808,
+        "length": 4096,
+        "offset": 48361472,
+        "operation_index": 37,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 12175,
+        "last_page": 12175,
+        "length": 4096,
+        "offset": 49864704,
+        "operation_index": 38,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 12243,
+        "last_page": 12243,
+        "length": 4096,
+        "offset": 50143232,
+        "operation_index": 39,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 12357,
+        "last_page": 12357,
+        "length": 4096,
+        "offset": 50610176,
+        "operation_index": 40,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 12385,
+        "last_page": 12385,
+        "length": 4096,
+        "offset": 50724864,
+        "operation_index": 41,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 12873,
+        "last_page": 12873,
+        "length": 4096,
+        "offset": 52723712,
+        "operation_index": 42,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 13392,
+        "last_page": 13392,
+        "length": 4096,
+        "offset": 54849536,
+        "operation_index": 43,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 13674,
+        "last_page": 13674,
+        "length": 4096,
+        "offset": 56004608,
+        "operation_index": 44,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 13925,
+        "last_page": 13925,
+        "length": 4096,
+        "offset": 57032704,
+        "operation_index": 45,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 14374,
+        "last_page": 14374,
+        "length": 4096,
+        "offset": 58871808,
+        "operation_index": 46,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 14499,
+        "last_page": 14499,
+        "length": 4096,
+        "offset": 59383808,
+        "operation_index": 47,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 15060,
+        "last_page": 15060,
+        "length": 4096,
+        "offset": 61681664,
+        "operation_index": 48,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 15068,
+        "last_page": 15068,
+        "length": 4096,
+        "offset": 61714432,
+        "operation_index": 49,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 15596,
+        "last_page": 15596,
+        "length": 4096,
+        "offset": 63877120,
+        "operation_index": 50,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 15685,
+        "last_page": 15685,
+        "length": 4096,
+        "offset": 64241664,
+        "operation_index": 51,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 16117,
+        "last_page": 16117,
+        "length": 4096,
+        "offset": 66011136,
+        "operation_index": 52,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 16363,
+        "last_page": 16363,
+        "length": 4096,
+        "offset": 67018752,
+        "operation_index": 53,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 16555,
+        "last_page": 16555,
+        "length": 4096,
+        "offset": 67805184,
+        "operation_index": 54,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 16605,
+        "last_page": 16605,
+        "length": 4096,
+        "offset": 68009984,
+        "operation_index": 55,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 17083,
+        "last_page": 17083,
+        "length": 4096,
+        "offset": 69967872,
+        "operation_index": 56,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 17552,
+        "last_page": 17552,
+        "length": 4096,
+        "offset": 71888896,
+        "operation_index": 57,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 17565,
+        "last_page": 17565,
+        "length": 4096,
+        "offset": 71942144,
+        "operation_index": 58,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 18071,
+        "last_page": 18071,
+        "length": 4096,
+        "offset": 74014720,
+        "operation_index": 59,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 18599,
+        "last_page": 18599,
+        "length": 4096,
+        "offset": 76177408,
+        "operation_index": 60,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 18853,
+        "last_page": 18853,
+        "length": 4096,
+        "offset": 77217792,
+        "operation_index": 61,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 18963,
+        "last_page": 18963,
+        "length": 4096,
+        "offset": 77668352,
+        "operation_index": 62,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 19142,
+        "last_page": 19142,
+        "length": 4096,
+        "offset": 78401536,
+        "operation_index": 63,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 19638,
+        "last_page": 19638,
+        "length": 4096,
+        "offset": 80433152,
+        "operation_index": 64,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 20128,
+        "last_page": 20128,
+        "length": 4096,
+        "offset": 82440192,
+        "operation_index": 65,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 20156,
+        "last_page": 20156,
+        "length": 4096,
+        "offset": 82554880,
+        "operation_index": 66,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 20346,
+        "last_page": 20346,
+        "length": 4096,
+        "offset": 83333120,
+        "operation_index": 67,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 20679,
+        "last_page": 20679,
+        "length": 4096,
+        "offset": 84697088,
+        "operation_index": 68,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 21202,
+        "last_page": 21202,
+        "length": 4096,
+        "offset": 86839296,
+        "operation_index": 69,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 21422,
+        "last_page": 21422,
+        "length": 4096,
+        "offset": 87740416,
+        "operation_index": 70,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 21724,
+        "last_page": 21724,
+        "length": 4096,
+        "offset": 88977408,
+        "operation_index": 71,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 22262,
+        "last_page": 22262,
+        "length": 4096,
+        "offset": 91181056,
+        "operation_index": 72,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 22737,
+        "last_page": 22737,
+        "length": 4096,
+        "offset": 93126656,
+        "operation_index": 73,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 22786,
+        "last_page": 22786,
+        "length": 4096,
+        "offset": 93327360,
+        "operation_index": 74,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 22894,
+        "last_page": 22894,
+        "length": 4096,
+        "offset": 93769728,
+        "operation_index": 75,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 23042,
+        "last_page": 23042,
+        "length": 4096,
+        "offset": 94375936,
+        "operation_index": 76,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 23203,
+        "last_page": 23203,
+        "length": 4096,
+        "offset": 95035392,
+        "operation_index": 77,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 23334,
+        "last_page": 23334,
+        "length": 4096,
+        "offset": 95571968,
+        "operation_index": 78,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 23882,
+        "last_page": 23882,
+        "length": 4096,
+        "offset": 97816576,
+        "operation_index": 79,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 24092,
+        "last_page": 24092,
+        "length": 4096,
+        "offset": 98676736,
+        "operation_index": 80,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 24408,
+        "last_page": 24408,
+        "length": 4096,
+        "offset": 99971072,
+        "operation_index": 81,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 24552,
+        "last_page": 24552,
+        "length": 4096,
+        "offset": 100560896,
+        "operation_index": 82,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 24960,
+        "last_page": 24960,
+        "length": 4096,
+        "offset": 102232064,
+        "operation_index": 83,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 25412,
+        "last_page": 25412,
+        "length": 4096,
+        "offset": 104083456,
+        "operation_index": 84,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 25481,
+        "last_page": 25481,
+        "length": 4096,
+        "offset": 104366080,
+        "operation_index": 85,
+        "success": true
+      },
+      {
+        "backend_calls": 1,
+        "bytes_completed": 4096,
+        "errno": null,
+        "first_page": 26007,
+        "last_page": 26007,
+        "length": 4096,
+        "offset": 106520576,
+        "operation_index": 86,
+        "success": true
+      }
+    ],
+    "leaf_k": null,
+    "memory_condition": {
+      "enabled": false,
+      "memory_max_bytes": null,
+      "name": "unlimited"
+    },
+    "n": null,
+    "pread_chunk_bytes": 1048576,
+    "pread_elapsed_us": 4792,
+    "prefetch_elapsed_us": 4792,
+    "schema_version": 1,
+    "selected_interior_count": 92,
+    "selected_leaf_count": 0,
+    "selected_pages_csv": "/home/u03/sqlite-research-project-sharing/static_experiment/experiments/smoke-scan/cells/8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434/selected_pages.csv",
+    "selected_unique_page_count": 92,
+    "short_read_count": 0,
+    "status": "completed",
+    "strategy": "range_interior",
+    "syscall_attempted_count": 87,
+    "syscall_failed_count": 0,
+    "syscall_succeeded_count": 87,
+    "variant": "range_interior"
+  },
+  "raw_result": {
+    "average_latency_us": 43.86,
+    "backend": "pread",
+    "cell_id": "8b57ff1883028acfdcfe06c58b5f3b7ddde43c66cd704ab4a91834d43cac0434",
+    "experiment_id": "smoke-scan",
+    "first_query_latency_us": 218.63,
+    "interior_k": "",
+    "layout": "original",
+    "leaf_k": "",
+    "major_page_faults": 239,
+    "measurement_file": "scan_zipf_full_027.txt",
+    "memory_condition": "unlimited",
+    "memory_limit_enabled": false,
+    "memory_max_bytes": "",
+    "minor_page_faults": 154,
+    "n": "",
+    "prefetch_elapsed_us": 4792,
+    "repetition": 1,
+    "requested_selected_resident_ratio": 1.0,
+    "resident_after_cold_pages": 105,
+    "selected_interior": 92,
+    "selected_leaf": 0,
+    "status": "completed",
+    "strategy": "range_interior",
+    "strategy_key": "range_interior",
+    "successful_selected_resident_ratio": 1.0,
+    "syscall_count": 87,
+    "variant": "range_interior",
+    "workload_type": "scan_zipf_full"
+  },
+  "repetition": 1,
+  "residency_metrics": {
+    "requested_selected_resident_ratio": 1.0,
+    "successful_selected_resident_ratio": 1.0
+  },
+  "status": "completed",
+  "strategy": {
+    "interior_k": null,
+    "leaf_k": null,
+    "n": null,
+    "strategy": "range_interior",
+    "variant": "range_interior"
+  },
+  "timeout": false,
+  "training_profile_sha256": null,
+  "workload_type": "scan_zipf_full"
+}

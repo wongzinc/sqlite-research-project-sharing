@@ -13,8 +13,10 @@ from plot_utils import ROOT, WORKLOAD_COLORS, save
 import matplotlib.pyplot as plt
 
 CSVP = ROOT / "p0_runs_churn/churn_nsweep.csv"
-data = defaultdict(dict)   # workload -> {N: fq}
+data = defaultdict(dict)   # workload -> {N: fq}  (layout orig headline; CSV also has vacuum/ta)
 for r in csv.DictReader(open(CSVP)):
+    if r.get("layout", "orig") != "orig":
+        continue
     data[r["workload"]][int(r["N"])] = float(r["first_query_us"])
 
 fig, ax = plt.subplots(figsize=(7.8, 4.6))

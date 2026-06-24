@@ -1,0 +1,9 @@
+workload_type,layout,memory_condition,strategy_key,backend,prefetch_median_us,prefetch_p25_us,prefetch_p75_us,first_query_improvement_median,first_query_improvement_p25,first_query_improvement_p75
+scan_zipf_full,original,unlimited,range_interior,madvise,118.0,112.0,141.0,41.640755261141905,41.3399874070101,42.24494343079247
+scan_zipf_full,original,unlimited,offset_topk_interior_n5,madvise,7.0,6.0,7.0,6.417373127395192,-68.83370881093259,6.546022714022525
+scan_zipf_full,original,unlimited,residency_topk_interior5_leaf0_i5_l0,madvise,5.0,5.0,5.0,11.797765910309922,-2.4160609207338113,16.457122256770766
+scan_zipf_full,original,unlimited,residency_topk_interior5_leaf5_i5_l5,madvise,7.0,6.0,7.0,9.642965415918477,9.213796307049126,13.891773393331036
+scan_zipf_full,original,unlimited,range_interior,pread,4817.0,4809.0,4828.0,42.03946228306884,38.44236760124611,44.58564282817358
+scan_zipf_full,original,unlimited,offset_topk_interior_n5,pread,129.0,129.0,315.0,14.076164268557173,12.486354662640805,17.175882114370694
+scan_zipf_full,original,unlimited,residency_topk_interior5_leaf0_i5_l0,pread,135.0,134.0,294.0,-0.4111020787364956,-0.7345320174845638,12.555670935733247
+scan_zipf_full,original,unlimited,residency_topk_interior5_leaf5_i5_l5,pread,134.0,132.0,154.0,15.713252955854573,1.8859598188363733,16.31291965211121

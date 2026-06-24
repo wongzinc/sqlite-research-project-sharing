@@ -19,7 +19,7 @@ WORKDIR  = OUT / "work"
 CHUNKS   = WORKDIR / "chunks"
 CHURN_SRC = R.ROOT / "prefetch_churn/workloads/page_churn_write.txt"
 WORKLOADS = ["A", "B", "C"]
-LAYOUT    = "orig"
+LAYOUTS   = ["orig", "vacuum", "ta"]
 N_CKPT    = 10
 OPS_PER   = 5000
 REPS      = 3
@@ -64,55 +64,50 @@ def med_fq(fn):
 def main():
     WORKDIR.mkdir(parents=True, exist_ok=True)
     chunks = make_chunks()
-    db0 = R.resolve_pointer(R.DBS[LAYOUT])
-    classify = R.load_classify(LAYOUT)
-    # static t=0 hotsets (structural / curated, captured once on the original DB)
-    static = {}
-    for name in ["2e_K10", "layers_92"]:
-        pages = R.select_pages(R.resolve_strategy(name), "A", LAYOUT, classify)  # 2e is per-workload; rebuilt per-w below
-        static[name] = pages
+    evo_rows, nsweep_rows = [], []   # evo: (workload,layout,checkpoint,strategy,fq); nsweep: (workload,layout,N,fq)
+    for layout in LAYOUTS:
+        db0 = R.resolve_pointer(R.DBS[layout])
+        classify = R.load_classify(layout)
+        for w in WORKLOADS:
+            wl = R.WORKLOADS[w]
+            workdb = WORKDIR / f"churn_{w}_{layout}.db"
+            shutil.copy2(db0, workdb)
+            recdir = WORKDIR / f"rec_{w}_{layout}"; recdir.mkdir(exist_ok=True)
+            # static t=0 hotsets for this (workload,layout): 2e is workload-dependent; layers_92 is structural
+            hot_2e = WORKDIR / f"static_2e_{w}_{layout}.csv"
+            R.build_hotset(R.select_pages(R.resolve_strategy("2e_K10"), w, layout, classify), classify, hot_2e)
+            hot_l92 = WORKDIR / f"static_l92_{w}_{layout}.csv"
+            R.build_hotset(R.select_pages(R.resolve_strategy("layers_92"), w, layout, classify), classify, hot_l92)
 
-    evo_rows, nsweep_rows = [], []
-    for w in WORKLOADS:
-        wl = R.WORKLOADS[w]
-        workdb = WORKDIR / f"churn_{w}.db"
-        shutil.copy2(db0, workdb)
-        recdir = WORKDIR / f"rec_{w}"; recdir.mkdir(exist_ok=True)
-        # build static hotsets for this workload (2e is workload-dependent; layers_92 is not)
-        hot_2e = WORKDIR / f"static_2e_{w}.csv"
-        R.build_hotset(R.select_pages(R.resolve_strategy("2e_K10"), w, LAYOUT, classify), classify, hot_2e)
-        hot_l92 = WORKDIR / f"static_l92_{w}.csv"
-        R.build_hotset(R.select_pages(R.resolve_strategy("layers_92"), w, LAYOUT, classify), classify, hot_l92)
+            for ck in range(N_CKPT + 1):
+                base = med_fq(lambda: R.run_baseline(workdb, wl, recdir, ARGS, verify_hotset=hot_2e))
+                s2e  = med_fq(lambda: R.run_one(workdb, wl, hot_2e,  "fadvise", recdir, ARGS))
+                sl92 = med_fq(lambda: R.run_one(workdb, wl, hot_l92, "fadvise", recdir, ARGS))
+                for strat, v in [("baseline", base), ("2e_K10_static", s2e), ("layers_92_static", sl92)]:
+                    if v is not None:
+                        evo_rows.append((w, layout, ck, strat, f"{v:.2f}"))
+                sys.stderr.write(f"[ckpt {ck}/{N_CKPT}] {w}/{layout}: base={base} 2e={s2e} l92={sl92}\n")
+                if ck < N_CKPT:
+                    apply_churn(workdb, chunks[ck], recdir)
 
-        for ck in range(N_CKPT + 1):
-            base = med_fq(lambda: R.run_baseline(workdb, wl, recdir, ARGS, verify_hotset=hot_2e))
-            s2e  = med_fq(lambda: R.run_one(workdb, wl, hot_2e,  "fadvise", recdir, ARGS))
-            sl92 = med_fq(lambda: R.run_one(workdb, wl, hot_l92, "fadvise", recdir, ARGS))
-            for strat, v in [("baseline", base), ("2e_K10_static", s2e), ("layers_92_static", sl92)]:
+            # fig 12: layers_N sweep on the FINAL churned DB (static t=0 layers hotsets)
+            nbase = med_fq(lambda: R.run_baseline(workdb, wl, recdir, ARGS, verify_hotset=hot_l92))
+            if nbase is not None:
+                nsweep_rows.append((w, layout, 0, f"{nbase:.2f}"))
+            for N in NSWEEP_N:
+                hs = WORKDIR / f"churn_layers_{w}_{layout}_{N}.csv"
+                R.build_hotset(R.select_pages(R.resolve_strategy(f"layers_{N}"), w, layout, classify), classify, hs)
+                v = med_fq(lambda hs=hs: R.run_one(workdb, wl, hs, "fadvise", recdir, ARGS))
                 if v is not None:
-                    evo_rows.append((w, ck, strat, f"{v:.2f}"))
-            sys.stderr.write(f"[ckpt {ck}/{N_CKPT}] {w}: base={base} 2e={s2e} l92={sl92}\n")
-            if ck < N_CKPT:
-                apply_churn(workdb, chunks[ck], recdir)
-
-        # fig 12: layers_N sweep on the FINAL churned DB (static t=0 layers hotsets)
-        nbase = med_fq(lambda: R.run_baseline(workdb, wl, recdir, ARGS, verify_hotset=hot_l92))
-        if nbase is not None:
-            nsweep_rows.append((w, 0, f"{nbase:.2f}"))
-        for N in NSWEEP_N:
-            hs = WORKDIR / f"churn_layers_{w}_{N}.csv"
-            R.build_hotset(R.select_pages(R.resolve_strategy(f"layers_{N}"), w, LAYOUT, classify), classify, hs)
-            v = med_fq(lambda hs=hs: R.run_one(workdb, wl, hs, "fadvise", recdir, ARGS))
-            if v is not None:
-                nsweep_rows.append((w, N, f"{v:.2f}"))
-            sys.stderr.write(f"[churn-nsweep] {w} N={N}: {v}\n")
+                    nsweep_rows.append((w, layout, N, f"{v:.2f}"))
+                sys.stderr.write(f"[churn-nsweep] {w}/{layout} N={N}: {v}\n")
 
     OUT.mkdir(exist_ok=True)
     with open(OUT / "churn_evolution.csv", "w", newline="") as f:
-        wr = csv.writer(f); wr.writerow(["workload", "checkpoint", "strategy", "first_query_us"])
+        wr = csv.writer(f); wr.writerow(["workload", "layout", "checkpoint", "strategy", "first_query_us"])
         wr.writerows(evo_rows)
     with open(OUT / "churn_nsweep.csv", "w", newline="") as f:
-        wr = csv.writer(f); wr.writerow(["workload", "N", "first_query_us"])
+        wr = csv.writer(f); wr.writerow(["workload", "layout", "N", "first_query_us"])
         wr.writerows(nsweep_rows)
     print(f"wrote {OUT/'churn_evolution.csv'} ({len(evo_rows)}) + {OUT/'churn_nsweep.csv'} ({len(nsweep_rows)})")
 
